@@ -7,4 +7,4 @@ Five-year P&L, cash and funding view for the program company, in three formats:
 - `Anatolian_Protocol_PL_Feasibility_mobile.pdf` — phone format
 - `Anatolian_Protocol_PL_Feasibility_slides.pdf` — 16 slides, 16:9
 
-Figures come from model v10 (Excel). A feasibility model for a program in design: partner rates are estimates until contracts are signed. Not investment, tax or legal advice.
+Figures come from model v11 (Excel). A feasibility model for a program in design: partner rates are estimates until contracts are signed. Not investment, tax or legal advice.
