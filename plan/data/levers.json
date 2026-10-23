@@ -1,0 +1,154 @@
+{
+  "note": "Levers that lower the funding to raise. Each lever is a set of input changes on top of the loaded plan; the Funding page applies them in this order and shows what each one takes off. Prudence settings (prepayment reserve, 25% buffer) are deliberately not levers.",
+  "levers": [
+    {
+      "id": "operator",
+      "group": "Partners",
+      "label": "Health-tourism operator + university hospital in",
+      "short": "Operator + hospital",
+      "detail": "International Plus with Atlas University Hospital: office, back office, authorisations, hotel rates, hospital day and physicians at partner rates. Paid in shares (0% revenue share).",
+      "changes": [
+        {
+          "path": "partners.operator",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "id": "physicians",
+      "group": "Partners",
+      "label": "Physician network in",
+      "short": "Physician network",
+      "detail": "US Camp physician network: 60% of new clients by referral (35% alone), lead conversion 14% (10% alone). Paid in shares.",
+      "changes": [
+        {
+          "path": "partners.physicians",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "id": "upfront",
+      "group": "Payment terms",
+      "label": "90% of the package paid at enrolment",
+      "short": "90% upfront",
+      "detail": "Instead of 70% now and 30% around month six. Premium programs of this kind are usually paid in full in advance.",
+      "changes": [
+        {
+          "path": "finance.upfront",
+          "value": 0.9
+        }
+      ]
+    },
+    {
+      "id": "founding",
+      "group": "Payment terms",
+      "label": "Founding-cohort discount 5%",
+      "short": "Founding discount 5%",
+      "detail": "Instead of 15%. The pilot cohort keeps a smaller discount; feedback and case data are still asked for.",
+      "changes": [
+        {
+          "path": "prices.foundingDiscount",
+          "value": 0.05
+        }
+      ]
+    },
+    {
+      "id": "atron",
+      "group": "Platform",
+      "label": "ATRON platform fee waived in the pilot year",
+      "short": "ATRON fee waived",
+      "detail": "The $3k/month base fee is not charged in year 1 and the $40k set-up balance due in month 13 is converted to equity. Per-client platform cost is unchanged.",
+      "changes": [
+        {
+          "path": "overheads.platformFeeY1",
+          "value": 0
+        },
+        {
+          "path": "setup.platformBalanceY2",
+          "value": 0
+        }
+      ]
+    },
+    {
+      "id": "team",
+      "group": "Lean pilot",
+      "label": "Lean pilot-year team",
+      "short": "Lean pilot team",
+      "detail": "Founder-led general manager at half cost in year 1; operations lead, client advisors, care coordinators and concierges at 50% of the pilot year (75% now). Full team from year 2.",
+      "changes": [
+        {
+          "path": "team.gm.y1",
+          "value": 0.5
+        },
+        {
+          "path": "team.ops.y1",
+          "value": 0.5
+        },
+        {
+          "path": "team.advisors.y1",
+          "value": 0.5
+        },
+        {
+          "path": "team.care.y1",
+          "value": 0.5
+        },
+        {
+          "path": "team.concierges.y1",
+          "value": 0.5
+        }
+      ]
+    },
+    {
+      "id": "spend",
+      "group": "Lean pilot",
+      "label": "Lean pilot-year spending",
+      "short": "Lean pilot spend",
+      "detail": "Brand and website set-up $20k (from $40k), recruitment $6k (from $12k), team travel and events $20k/yr (from $40k), fixed content $1.5k/month (from $3k).",
+      "changes": [
+        {
+          "path": "setup.brand",
+          "value": 20000
+        },
+        {
+          "path": "setup.recruitment",
+          "value": 6000
+        },
+        {
+          "path": "overheads.travel",
+          "value": 20000
+        },
+        {
+          "path": "overheads.brand",
+          "value": 1500
+        }
+      ]
+    },
+    {
+      "id": "cohorts",
+      "group": "Timing",
+      "label": "Pilot cohorts one month earlier (months 3 and 6)",
+      "short": "Cohorts M3, M6",
+      "detail": "Founding clients sign during set-up and start in month 3 instead of month 4; the second cohort follows in month 6.",
+      "changes": [
+        {
+          "path": "monthly.y1Cohorts",
+          "value": [
+            0,
+            0,
+            0.5,
+            0,
+            0,
+            0.5,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ]
+    }
+  ]
+}
