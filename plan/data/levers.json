@@ -127,10 +127,14 @@
     {
       "id": "cohorts",
       "group": "Timing",
-      "label": "Pilot cohorts one month earlier (months 3 and 6)",
+      "label": "Set-up in two months, pilot cohorts in months 3 and 6",
       "short": "Cohorts M3, M6",
-      "detail": "Founding clients sign during set-up and start in month 3 instead of month 4; the second cohort follows in month 6.",
+      "detail": "Set-up is finished in two months instead of three, so the founding cohort starts in month 3 instead of month 4; the second cohort follows in month 6.",
       "changes": [
+        {
+          "path": "monthly.setupMonths",
+          "value": 2
+        },
         {
           "path": "monthly.y1Cohorts",
           "value": [

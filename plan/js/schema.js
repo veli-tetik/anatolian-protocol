@@ -19,12 +19,12 @@ window.APSchema = [
   ]},
   { id: "delivery", title: "C · Delivery costs per client", fields: [
     { path: "delivery.hospitalDay", label: "First visit: hospital measurement day", kind: "usd", shape: "pair" },
-    { path: "delivery.firstNights", label: "First visit: hotel nights", kind: "num", shape: "pair" },
+    { path: "delivery.firstNights", label: "First visit: hotel nights", kind: "int", shape: "pair" },
     { path: "delivery.firstRate", label: "First visit: hotel rate per night", kind: "usd", shape: "pair" },
     { path: "delivery.firstExperiences", label: "First visit: experiences and meals", kind: "usd", shape: "pair" },
     { path: "delivery.firstTransfers", label: "First visit: transfers", kind: "usd", shape: "pair" },
     { path: "delivery.laterBlock", label: "Later visit: regional measurement block", kind: "usd", shape: "pair" },
-    { path: "delivery.laterNights", label: "Later visit: hotel nights", kind: "num", shape: "pair" },
+    { path: "delivery.laterNights", label: "Later visit: hotel nights", kind: "int", shape: "pair" },
     { path: "delivery.laterRate", label: "Later visit: hotel rate per night", kind: "usd", shape: "pair" },
     { path: "delivery.laterExperiences", label: "Later visit: experiences and meals", kind: "usd", shape: "pair" },
     { path: "delivery.laterTransfers", label: "Later visit: transfers", kind: "usd", shape: "pair" },
@@ -41,7 +41,8 @@ window.APSchema = [
     { path: "delivery.interpreters", label: "Interpreters per visit", kind: "usd", shape: "pair" },
     { path: "delivery.yearEndReport", label: "Year-end report and review", kind: "usd", shape: "pair" },
     { path: "delivery.hotelDiscount", label: "Negotiated discount on hotel list rates", kind: "pct", partner: true },
-    { path: "delivery.homeDrawsPerYear", label: "Home-country blood draws per year", kind: "num" },
+    { path: "delivery.visits", label: "Visits per year by package", kind: "int", shape: "triple", note: "Fixed by package design." },
+    { path: "delivery.homeDrawsPerYear", label: "Home-country blood draws per year", kind: "int" },
   ]},
   { id: "addons", title: "D · Add-ons, companions and fees", fields: [
     { path: "addons.buyShare", label: "Clients buying clinical add-ons", kind: "pct" },
@@ -54,7 +55,7 @@ window.APSchema = [
     { path: "addons.referralCommission", label: "Referral commission, % of first-year price", kind: "pct" },
   ]},
   { id: "funnel", title: "E · Demand funnel and refunds", fields: [
-    { path: "funnel.leads", label: "Marketing-qualified leads (alone)", kind: "num", shape: "years" },
+    { path: "funnel.leads", label: "Marketing-qualified leads (alone)", kind: "int", shape: "years" },
     { path: "funnel.costPerLead", label: "Cost per qualified lead (alone)", kind: "usd", shape: "years" },
     { path: "funnel.conversion", label: "Lead-to-client conversion (alone)", kind: "pct" },
     { path: "funnel.referralShare", label: "New clients through referral partners (alone)", kind: "pct" },
@@ -92,9 +93,12 @@ window.APSchema = [
     { path: "finance.midYear", label: "Share of a program year in the enrolment year", kind: "pct", note: "Model convention; change with care." },
   ]},
   { id: "countries", title: "K · Source countries", fields: [
-    { path: "countries.opened", label: "New source countries opened", kind: "num", shape: "years" },
+    { path: "countries.opened", label: "New source countries opened", kind: "int", shape: "years" },
     { path: "countries.oneOff", label: "One-off cost per new country", kind: "usd" },
     { path: "countries.running", label: "Running cost per additional country", kind: "usd" },
+  ]},
+  { id: "logic", title: "I · Model rules", fields: [
+    { path: "logic.wholeClients", label: "Count clients in whole numbers", kind: "bool", note: "On: clients, renewals, visits and leads are whole numbers, split over the six packages. Off: fractional clients, exactly as the Excel v5 workbook." },
   ]},
   { id: "retention", title: "L · Retention", fields: [
     { path: "retention.y3", label: "Renewal into program year 3", kind: "pct" },

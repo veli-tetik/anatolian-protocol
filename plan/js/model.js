@@ -17,6 +17,18 @@
   const sum = (a) => a.reduce((s, v) => s + v, 0);
   const roundUp = (v) => Math.ceil(v - 1e-9);
 
+  // Split a whole number over weights so the parts are whole and add up (largest remainder).
+  function allocate(total, weights) {
+    const w = sum(weights);
+    if (w <= 0 || total <= 0) return weights.map(() => 0);
+    const raw = weights.map((x) => total * x / w);
+    const out = raw.map(Math.floor);
+    let left = Math.round(total - sum(out));
+    const order = raw.map((x, i) => [x - Math.floor(x), i]).sort((a, b) => b[0] - a[0]);
+    for (let k = 0; left > 0; k = (k + 1) % order.length, left--) out[order[k][1]]++;
+    return out;
+  }
+
   // ------------------------------------------------------------ paths
   function getPath(obj, path) {
     const parts = path.split(".");
@@ -118,37 +130,55 @@
     let c2 = 0, c3 = 0, c4 = 0;           // clients in 2nd, 3rd, 4th+ program year (rows 106–108)
     const baseRenew = E.scenarios.base.renewal;
     const plan = fn.leads.map((l) => l * al.conversion / (1 - al.referralShare) / (1 - E.prices.companionShare));
+    // Whole clients: every count of people is a whole number, split over the six packages.
+    const whole = !(E.logic && E.logic.wholeClients === false);
+    const n = (v) => (whole ? Math.round(v + 1e-9) : v);
+    const shares = UE.cols.map((c) => c.share);
+    const split = (total) => (whole ? allocate(total, shares) : shares.map((x) => total * x));
+    const dot = (counts, k) => sum(counts.map((c, j) => c * UE.cols[j][k]));
     let activeCountries = 0;
 
     for (let i = 0; i < YEARS; i++) {
       const r = {};
       const yr = i + 1, pilot = yr === 1 ? 1 : 0;
       r.pilot = pilot;
-      r.newClients = plan[i] * S.volume;
-      r.companions = r.newClients * E.prices.companionShare;
+      r.newClients = n(plan[i] * S.volume);
+      r.companions = n(r.newClients * E.prices.companionShare);
       r.acquired = r.newClients - r.companions;
+      r.referred = n(r.acquired * fn.referralShare);
+      r.marketing = r.acquired - r.referred;
       if (i > 0) {
-        const n2 = prev.newClients * S.renewal;
-        const n3 = c2 * E.retention.y3 * S.renewal / baseRenew;
-        const n4 = (c3 + c4) * E.retention.y4 * S.renewal / baseRenew;
+        const n2 = n(prev.newClients * S.renewal);
+        const n3 = n(c2 * E.retention.y3 * S.renewal / baseRenew);
+        const n4 = n((c3 + c4) * E.retention.y4 * S.renewal / baseRenew);
         c2 = n2; c3 = n3; c4 = n4;
       }
       r.renewing = c2 + c3 + c4;
+      r.renew2 = c2; r.renew3 = c3; r.renew4 = c4;
       r.programYears = r.newClients + r.renewing;
+      r.newByPkg = split(r.newClients);
+      r.renewByPkg = split(r.renewing);
+      r.pyByPkg = r.newByPkg.map((x, j) => x + r.renewByPkg[j]);
       r.active = mid * r.programYears + (1 - mid) * (prev ? prev.programYears : 0);
-      r.visits = r.programYears * W.visits;
+      r.visits = dot(r.pyByPkg, "visits");
+      r.deliveryBase = dot(r.pyByPkg, "delivery");          // partner delivery at year-1 prices
+      r.firstAvg = r.programYears ? dot(r.pyByPkg, "first") / r.programYears : W.first;
+      r.deliveryAvg = r.programYears ? r.deliveryBase / r.programYears : W.delivery;
+      r.addonBuyers = n(r.programYears * E.addons.buyShare);
+      r.expCompanions = n(r.visits * E.addons.expCompanionsPerVisit);
       r.priceIdx = Math.pow(1 + E.prices.listIncrease, yr - 1);
       r.costIdx = prev ? prev.costIdx * (1 + F.inflation[i]) : 1;
 
       // bookings
-      r.bNew = r.newClients * W.price * (1 - E.prices.companionShare * E.prices.companionDiscount) * S.price * r.priceIdx * (1 - pilot * E.prices.foundingDiscount);
-      r.bRenew = r.renewing * W.price * E.prices.renewalPrice * S.price * r.priceIdx;
-      r.bAddon = r.programYears * E.addons.buyShare * E.addons.spend * r.priceIdx;
-      r.bExpComp = r.visits * E.addons.expCompanionsPerVisit * E.addons.expCompanionPrice * r.priceIdx;
+      const compShare = r.newClients ? r.companions / r.newClients : 0;
+      r.bNew = dot(r.newByPkg, "price") * (1 - compShare * E.prices.companionDiscount) * S.price * r.priceIdx * (1 - pilot * E.prices.foundingDiscount);
+      r.bRenew = dot(r.renewByPkg, "price") * E.prices.renewalPrice * S.price * r.priceIdx;
+      r.bAddon = r.addonBuyers * E.addons.spend * r.priceIdx;
+      r.bExpComp = r.expCompanions * E.addons.expCompanionPrice * r.priceIdx;
       r.bookings = r.bNew + r.bRenew + r.bAddon + r.bExpComp;
       r.refunds = -fn.withdraw * fn.refund * (r.bNew + r.bRenew);
 
-      const p = prev || { bNew: 0, bRenew: 0, refunds: 0, bAddon: 0, bExpComp: 0, programYears: 0, costIdx: 0, visits: 0 };
+      const p = prev || { bNew: 0, bRenew: 0, refunds: 0, bAddon: 0, bExpComp: 0, programYears: 0, costIdx: 0, visits: 0, deliveryBase: 0, expCompanions: 0 };
       r.progRevenue = mid * (r.bNew + r.bRenew + r.refunds) + (1 - mid) * (p.bNew + p.bRenew + p.refunds);
       r.addonRevenue = mid * (r.bAddon + r.bExpComp) + (1 - mid) * (p.bAddon + p.bExpComp);
       r.revenue = r.progRevenue + r.addonRevenue;
@@ -170,11 +200,11 @@
       for (const t of team) r.teamCost[t.id] = pay(t);
 
       // cost of service
-      r.partnerDelivery = (mid * r.programYears * W.delivery * r.costIdx + (1 - mid) * p.programYears * W.delivery * p.costIdx) * S.partnerCost * wr;
-      r.addonDelivery = mid * (r.bAddon * (1 - E.addons.margin) + r.visits * E.addons.expCompanionsPerVisit * E.addons.expCompanionCost * r.costIdx)
-        + (1 - mid) * (p.bAddon * (1 - E.addons.margin) + p.visits * E.addons.expCompanionsPerVisit * E.addons.expCompanionCost * p.costIdx);
+      r.partnerDelivery = (mid * r.deliveryBase * r.costIdx + (1 - mid) * p.deliveryBase * p.costIdx) * S.partnerCost * wr;
+      r.addonDelivery = mid * (r.bAddon * (1 - E.addons.margin) + r.expCompanions * E.addons.expCompanionCost * r.costIdx)
+        + (1 - mid) * (p.bAddon * (1 - E.addons.margin) + p.expCompanions * E.addons.expCompanionCost * p.costIdx);
       r.processing = r.revenue * E.addons.processing;
-      r.referral = r.acquired * fn.referralShare * E.addons.referralCommission * r.bNew / Math.max(r.newClients, 0.0001);
+      r.referral = r.referred * E.addons.referralCommission * r.bNew / Math.max(r.newClients, 0.0001);
       r.careTeam = sum(team.filter((t) => t.group === "care").map((t) => r.teamCost[t.id]));
       r.costOfService = r.partnerDelivery + r.addonDelivery + r.processing + r.referral + r.careTeam;
       r.grossProfit = r.revenue - r.costOfService;
@@ -182,7 +212,7 @@
 
       // opex
       const cac = fn.costPerLead[i] / fn.conversion;
-      r.acquisition = r.acquired * (1 - fn.referralShare) * cac * S.cac / (1 - fn.cancelBeforeVisit);
+      r.acquisition = r.marketing * cac * S.cac / (1 - fn.cancelBeforeVisit);
       r.brand = E.overheads.brand * 12 * r.costIdx;
       r.advisors = sum(team.filter((t) => t.group === "sales").map((t) => r.teamCost[t.id]));
       r.salesMarketing = r.acquisition + r.brand + r.advisors;
@@ -214,7 +244,7 @@
       // cash
       const up = F.upfront;
       r.cashIn = (r.bookings + r.refunds) * (up + (1 - up) * mid) + (p.bookings !== undefined ? (p.bookings + p.refunds) : 0) * (1 - up) * (1 - mid);
-      r.timing = (F.partnerUpfront - mid) * (r.programYears * W.delivery * r.costIdx - p.programYears * W.delivery * p.costIdx) * S.partnerCost * wr;
+      r.timing = (F.partnerUpfront - mid) * (r.deliveryBase * r.costIdx - p.deliveryBase * p.costIdx) * S.partnerCost * wr;
       r.cashOut = r.revenue - r.netProfit + r.timing;
       r.netCash = r.cashIn - r.cashOut;
       cumCash += r.netCash;
@@ -224,6 +254,7 @@
       r.cumAfterReserve = r.cumCash - unearned * F.reserve[i];
       // leads needed for the same client plan once partners lift conversion and referrals
       r.leads = fn.leads[i] * (al.conversion / fn.conversion) * (1 - fn.referralShare) / (1 - al.referralShare);
+      if (whole) r.leads = Math.ceil(r.leads - 1e-9);
       y.push(r);
       prev = r;
     }
@@ -241,15 +272,30 @@
     const F = E.finance, fn = E.funnel, S = E.scenarios.base;
     const Y = P.years, W = UE.w;
     const wr = 1 - fn.withdraw * fn.refund;
-    const share = [];
-    for (let m = 0; m < MONTHS; m++) share.push(m < 12 ? E.monthly.y1Cohorts[m] : 1 / 12);
+    const whole = !(E.logic && E.logic.wholeClients === false);
+    // new clients per month: the year's total spread over its months (whole clients if set)
+    const newM = [];
+    for (let yi = 0; yi < 3; yi++) {
+      const w = yi === 0 ? E.monthly.y1Cohorts : Array(12).fill(1 / 12);
+      newM.push(...(whole ? allocate(Y[yi].newClients, w) : w.map((x) => x * Y[yi].newClients)));
+    }
     const rows = [];
+    let ren = [];
     let cum = 0, cumPaid = 0, cumEarned = 0;
     for (let m = 0; m < MONTHS; m++) {
       const yi = Math.floor(m / 12), yr = Y[yi];
       const r = { m: m + 1, year: yi + 1 };
-      r.newC = share[m] * yr.newClients;
+      r.newC = newM[m];
       r.renewC = m < 12 ? 0 : rows[m - 12].newC * S.renewal + (m >= 24 ? rows[m - 12].renewC * E.retention.y3 : 0);
+      if (whole && m >= 12) {
+        if (m % 12 === 0) {
+          // the year's renewing clients, spread like the cohorts they come from
+          const w = [];
+          for (let k = m; k < m + 12; k++) w.push(rows[k - 12].newC * S.renewal + (k >= 24 ? rows[k - 12].renewC * E.retention.y3 : 0));
+          ren = allocate(yr.renewing, w);
+        }
+        r.renewC = ren[m % 12];
+      }
       r.started = r.newC + r.renewC;
       r.priceNew = yr.bNew / Math.max(yr.newClients, 0.0001);
       r.priceRenew = yi === 0 ? 0 : yr.bRenew / Math.max(yr.renewing, 0.0001);
@@ -260,10 +306,10 @@
       r.addons = yi === 0 ? (m >= setupM ? (yr.bAddon + yr.bExpComp - yr.addonDelivery) / (12 - setupM) : 0) : (yr.bAddon + yr.bExpComp - yr.addonDelivery) / 12;
       r.cashIn = r.enrolPay + r.balance + r.addons;
       const pc = yr.costIdx * S.partnerCost * wr;
-      r.firstVisit = r.started * W.first * pc;
+      r.firstVisit = r.started * yr.firstAvg * pc;
       let win = 0; for (let k = Math.max(0, m - 11); k < m; k++) win += rows[k].started;
       win += r.started;
-      r.restYear = win * (W.delivery - W.first) / 12 * pc;
+      r.restYear = win * (yr.deliveryAvg - yr.firstAvg) / 12 * pc;
       r.acq = r.newC * (yr.acquisition + yr.referral) / Math.max(yr.newClients, 0.0001);
       r.processing = r.cashIn * E.addons.processing;
       r.salaries = (yr.careTeam + yr.advisors + yr.leadership) / 12;

@@ -3,6 +3,8 @@
 const path = require("path");
 const M = require(path.join(__dirname, "../js/model.js"));
 const A = require(path.join(__dirname, "../data/v5.json"));
+// Excel works with fractional clients; compare with whole-client rounding switched off.
+A.logic = { wholeClients: false };
 const X = require(path.join(__dirname, "excel_v5_values.json"));
 
 const R = M.compute(A);

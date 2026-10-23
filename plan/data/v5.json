@@ -1,7 +1,7 @@
 {
   "meta": {
     "name": "v5 baseline",
-    "note": "Converted 1:1 from Anatolian_Protocol_PL_Feasibility_v5.xlsx (23 Oct 2026). All amounts USD, excl. VAT."
+    "note": "Converted 1:1 from Anatolian_Protocol_PL_Feasibility_v5.xlsx (23/10/2026). All amounts USD, excl. VAT."
   },
   "prices": {
     "annual": [12500, 21500],
@@ -143,6 +143,9 @@
       { "group": "physicians", "path": "funnel.referralShare",    "with": 0.6,  "label": "New clients arriving through referral partners",       "basis": "Network physicians refer; 12% commission instead of marketing cost." },
       { "group": "physicians", "path": "funnel.conversion",       "with": 0.14, "label": "Lead-to-client conversion",                            "basis": "Physician-led scientific board raises trust in the sales call." }
     ]
+  },
+  "logic": {
+    "wholeClients": true
   },
   "monthly": {
     "y1Cohorts": [0, 0, 0, 0.5, 0, 0, 0.5, 0, 0, 0, 0, 0],

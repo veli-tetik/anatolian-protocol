@@ -16,7 +16,14 @@ Published with GitHub Pages at `/plan/` next to the presentation.
 | P&L | Five-year P&L, cash and funding per scenario; CSV export |
 | Monthly cash | First 36 months, the low point that sets the raise; pilot cohort timing |
 | Partners | Operator + hospital and physician network switches, and what each takes off |
+| Checks | Model rules every input must meet (errors) and results worth a second look (warnings) |
 | Versions | Starting points, saved versions, JSON export/import, share links, change list |
+
+## Rules
+
+- Clients, renewals, companions, visits, leads and team members are whole numbers, split over the six packages. Assumptions, section I can switch this off to reproduce Excel v5 exactly.
+- Numbers use UK format: `12,500.5`, percentages as `15%`, dates as dd/mm/yyyy. A decimal comma (`0,5`) is rejected.
+- Errors (for example package shares not totalling 100%, or clients enrolling before set-up ends) are flagged on the field, in the rail and on the Checks page.
 
 ## How to work with it
 
@@ -29,9 +36,10 @@ Published with GitHub Pages at `/plan/` next to the presentation.
 
 - `data/v5.json` — the v5 Excel model as data (all assumptions)
 - `data/levers.json` — funding levers
-- `js/model.js` — the calculation engine, a line-for-line port of the Excel formulas
+- `js/model.js` — the calculation engine, a line-for-line port of the Excel formulas, with whole-client rounding
+- `js/checks.js` — the logic checks
 - `js/app.js`, `js/charts.js`, `js/schema.js`, `css/app.css` — the interface
-- `tools/check.js` — regression check: `node plan/tools/check.js` must print OK (the engine reproduces Excel v5 to within 0.000002%)
+- `tools/check.js` — regression check: `node plan/tools/check.js` must print OK (with whole-client rounding off, the engine reproduces Excel v5 to within 0.000002%)
 
 ## Run locally
 
