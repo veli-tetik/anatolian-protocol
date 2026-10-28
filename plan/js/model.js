@@ -586,6 +586,8 @@
     const ng = core(noGrowthPlan(A));
     res.noGrowth = Object.assign(ng.scen.base, { monthly: ng.monthly, funding: ng.funding });
     res.rounds = rounds(A, res);
+    // the plan is funded by the two rounds: its year-5 cash includes both
+    res.scen.base.cashEnd = res.scen.base.years[4].cumCash + res.rounds.total;
     return res;
   }
 

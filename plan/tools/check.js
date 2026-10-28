@@ -1,6 +1,6 @@
 // Regression check: the engine must reproduce the Excel workbooks.
 //   node plan/tools/check.js
-// v5: Anatolian_Protocol_PL_Feasibility_v5.xlsx; v6.2: Anatolian_Protocol_PL_Feasibility_v6.2.xlsx (the current plan).
+// v5: Anatolian_Protocol_PL_Feasibility_v5.xlsx; v6.2: …_v6.2.xlsx (inputs in v62_inputs.json); v6.3: …_v6.3.xlsx (the current plan, data/v6.json).
 // Both workbooks work with fractional clients, so whole-client rounding is switched off here.
 const path = require("path");
 const M = require(path.join(__dirname, "../js/model.js"));
@@ -47,4 +47,15 @@ const ok62 = run("v6.2", "v62_inputs.json", "excel_v62_values.json", (R, X, chk)
   X.cumAfter.forEach((v, i) => chk(`monthly.cumAfter[M${i + 1}]`, R.monthly.rows[i].cumAfter, v));
 });
 
-if (!ok5 || !ok62) process.exit(1);
+const ok63 = run("v6.3", "../data/v6.json", "excel_v63_values.json", (R, X, chk) => {
+  const B = R.scen.base;
+  for (const [k, v] of Object.entries(X.years)) v.forEach((x, i) => chk(`${k}[Y${i + 1}]`, B.years[i][k], x));
+  chk("cash need", R.funding, X.funding);
+  chk("monthly.raise", R.monthly.raise, X.raiseM);
+  chk("monthly.lowAfterMonth", R.monthly.lowAfterMonth, X.lowMonth);
+  chk("rounds.preNeeded", R.rounds.preNeeded, X.preNeeded);
+  X.cum.forEach((v, i) => chk(`monthly.cum[M${i + 1}]`, R.monthly.rows[i].cum, v));
+  X.cumAfter.forEach((v, i) => chk(`monthly.cumAfter[M${i + 1}]`, R.monthly.rows[i].cumAfter, v));
+});
+
+if (!ok5 || !ok62 || !ok63) process.exit(1);

@@ -36,7 +36,7 @@ Published with GitHub Pages at `/plan/` next to the presentation.
 
 ## Files
 
-- `data/v6.json` — the current plan (v6.3), loaded by default and the reference that changes are shown against: v6.2 with payment per visit (a $500 deposit at sale, then before each visit the share for that visit, front-loaded: Annual 100%, Summer–Winter 60/40, Seasonal 50/25/25 of the rest) and funding in two rounds only: a $200k pre-seed and a $500k seed at the end of month 9. The Excel workbook for v6.3 is not built yet; `tools/v62_inputs.json` keeps the v6.2 inputs for the regression check
+- `data/v6.json` — the current plan (v6.3, `Anatolian_Protocol_PL_Feasibility_v6.3.xlsx` as data), loaded by default and the reference that changes are shown against: v6.2 with payment per visit (a $500 deposit at sale, then before each visit the share for that visit, front-loaded: Annual 100%, Summer–Winter 60/40, Seasonal 50/25/25 of the rest), funding in two rounds only (a $200k pre-seed and a $500k seed at the end of month 9) and a lighter pilot year: Plus International partner rates, a 5% founding-cohort discount, the ATRON platform fee waived in year 1. `tools/v62_inputs.json` keeps the v6.2 inputs for the regression check
 - `data/v5.json` — the v5 Excel model as data (all assumptions), kept for history and the regression check
 - `data/levers.json` — funding levers
 - `data/scenarios.json` — business scenarios: groups of cases, each a set of input changes on the plan
@@ -130,17 +130,18 @@ client plan.
 There is no single-round raise any more: the plan is funded by a $200k pre-seed and a $500k seed at the end of month 9. The cash
 need (lowest cash after the reserve plus the 25% buffer) is what both rounds must cover; the pre-seed must also reach the seed month.
 
-| Tool figures (whole clients) | |
+With payment per visit alone the $200k pre-seed ran out in month 6 (it needed $306k with the buffer). v6.3 therefore keeps the pilot
+year light with three levers from the Cash levers page: Plus International's partner rates, a 5% founding-cohort discount and the
+ATRON platform fee waived in year 1. Workbook figures (fractional clients):
+
+| | |
 |---|---|
-| Cash need | $460k, covered by $700k ($240k seed surplus) |
-| Lowest cash before the seed (month 9) | $245k; with the buffer the pre-seed would need $306k |
-| $200k pre-seed | runs out in month 6, three months before the seed |
+| Cash need | $221k, covered by $700k raised |
+| Pre-seed needed to month 9 with the buffer | $184k of $200k; on its own the pre-seed lasts all 36 months |
+| Seed the plan needs | $21k of $500k; $479k free for growth (growth options on the Funding rounds page) |
+| First positive EBITDA / five-year net profit | Y3 / $1.84M |
 
-Ways to make the $200k pre-seed reach month 9 (still open): a 5% founding discount and the ATRON fee waived in year 1 (reaches it
-without the buffer); plus Plus International's partner rates (reaches it with the buffer); or the seed at the end of month 5.
-
-Collection is the assumption the funding is most sensitive to: paid in full at the first visit $379k, the v6.2 schedule $441k,
-per visit front-loaded $460k, per visit in equal shares $512k, 25% and 12 months $754k, monthly over the year $876k.
+Collection is the assumption the funding is most sensitive to (Scenarios page, Collection group).
 
 ## v6.2 rounds: $275k pre-seed + $500k seed
 

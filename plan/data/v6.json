@@ -1,7 +1,7 @@
 {
   "meta": {
     "name": "v6.3 plan",
-    "note": "v6.2 with payment per visit (deposit at sale; before each visit the share for that visit, front-loaded: Annual 100%, Summer–Winter 60/40, Seasonal 50/25/25 of the rest) and two rounds only: a $200k pre-seed and a $500k seed at the end of month 9. 28/10/2026. All amounts USD, excl. VAT."
+    "note": "v6.2 with payment per visit (deposit at sale; before each visit the share for that visit, front-loaded: Annual 100%, Summer–Winter 60/40, Seasonal 50/25/25 of the rest), two rounds only (a $200k pre-seed and a $500k seed at the end of month 9) and a lighter pilot year so the pre-seed reaches the seed with the 25% buffer: Plus International partner rates (hospital, physicians, hotels, clinical lead, legal), a 5% founding-cohort discount and the ATRON platform fee waived in year 1 (set-up balance to equity). 28/10/2026. All amounts USD, excl. VAT."
   },
   "prices": {
     "annual": [
@@ -16,7 +16,7 @@
       22500,
       37500
     ],
-    "foundingDiscount": 0.15,
+    "foundingDiscount": 0.05,
     "listIncrease": 0.05,
     "renewalPrice": 0.9,
     "companionShare": 0.15,
@@ -260,7 +260,7 @@
     "insurance": 25000,
     "accounting": 18000,
     "platformFee": 3000,
-    "platformFeeY1": 1,
+    "platformFeeY1": 0,
     "travel": 20000,
     "brand": 1500,
     "contingency": 0.07
@@ -272,7 +272,7 @@
     "clinical": 20000,
     "recruitment": 6000,
     "contracting": 15000,
-    "platformBalanceY2": 40000
+    "platformBalanceY2": 0
   },
   "finance": {
     "inflation": [
@@ -354,7 +354,7 @@
     }
   },
   "partners": {
-    "operator": 0,
+    "operator": 1,
     "physicians": 0,
     "revenueShare": 0,
     "levers": [

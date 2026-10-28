@@ -750,7 +750,7 @@
   P.versions = () => {
     const vs = versions(), d = diff(S.A, S.ref);
     const presets = [
-      ["v6.3 plan", () => S.v6, "2% of leads become clients at $75 a lead (benchmark; stress $150), 30 → 180 new clients a year, 40% marketing support a year later, staff and infrastructure carried in kind by Plus International, payment per visit (front-loaded), a $200k pre-seed and a $500k seed at month 9."],
+      ["v6.3 plan", () => S.v6, "2% of leads become clients at $75 a lead (benchmark; stress $150), 30 → 180 new clients a year, 40% marketing support a year later, staff and infrastructure carried in kind by Plus International, payment per visit (front-loaded), a $200k pre-seed and a $500k seed at month 9, and a light pilot year: partner rates, a 5% founding discount, the ATRON fee waived."],
       ["v5 baseline", () => S.v5, "The Excel model v5, converted 1:1."],
       ["v6.3 plan with every funding lever", () => applyLevers(S.v6, S.levers.map((l) => l.id)), "v6.3 with partner rates, the physician network, payment in full at the first visit, a 5% founding discount and the ATRON fee waived."],
     ];
@@ -814,7 +814,7 @@
   window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => render(true), 150); });
   window.addEventListener("hashchange", () => render());
 
-  Promise.all(["data/v5.json", "data/v6.json", "data/levers.json", "data/scenarios.json", "data/report.json"].map((u) => fetch(u + "?v=68").then((r) => r.json())))
+  Promise.all(["data/v5.json", "data/v6.json", "data/levers.json", "data/scenarios.json", "data/report.json"].map((u) => fetch(u + "?v=69").then((r) => r.json())))
     .then(([v5, v6, lv, sc, rp]) => {
       S.ref = v6; S.v5 = v5; S.v6 = v6; S.scenDefs = sc; S.levers = lv.levers; S.report = rp; S.refR = M.compute(v6);
       if (!readShare()) {
