@@ -1,0 +1,546 @@
+{
+  "meta": {
+    "name": "v6.6 inputs (regression fixture)",
+    "note": "Anatolian_Protocol_PL_Feasibility_v6.6.xlsx as data; used only by tools/check.js."
+  },
+  "prices": {
+    "annual": [
+      12500,
+      21500
+    ],
+    "summerWinter": [
+      17500,
+      29500
+    ],
+    "seasonal": [
+      22500,
+      37500
+    ],
+    "foundingDiscount": 0.05,
+    "listIncrease": 0.05,
+    "renewalPrice": 0.9,
+    "companionShare": 0.15,
+    "companionDiscount": 0.2
+  },
+  "mix": {
+    "annual": 0.4,
+    "summerWinter": 0.35,
+    "seasonal": 0.25,
+    "premium": 0.3
+  },
+  "delivery": {
+    "hospitalDay": [
+      1000,
+      1000
+    ],
+    "firstNights": [
+      3,
+      3
+    ],
+    "firstRate": [
+      220,
+      600
+    ],
+    "firstExperiences": [
+      700,
+      2000
+    ],
+    "firstTransfers": [
+      250,
+      900
+    ],
+    "laterBlock": [
+      500,
+      500
+    ],
+    "laterNights": [
+      3,
+      3
+    ],
+    "laterRate": [
+      200,
+      500
+    ],
+    "laterExperiences": [
+      800,
+      2500
+    ],
+    "laterTransfers": [
+      250,
+      900
+    ],
+    "insurance": [
+      80,
+      80
+    ],
+    "physicianHours": [
+      7,
+      10
+    ],
+    "physicianRate": [
+      120,
+      120
+    ],
+    "homeDraw": [
+      280,
+      280
+    ],
+    "monthlyBox": [
+      80,
+      125
+    ],
+    "platformPerClient": [
+      600,
+      600
+    ],
+    "wearables": [
+      60,
+      60
+    ],
+    "starterPack": [
+      40,
+      70
+    ],
+    "telehealth": [
+      250,
+      250
+    ],
+    "teamTravel": [
+      150,
+      150
+    ],
+    "interpreters": [
+      60,
+      60
+    ],
+    "yearEndReport": [
+      300,
+      300
+    ],
+    "visits": [
+      1,
+      2,
+      3
+    ],
+    "hotelDiscount": 0.1,
+    "homeDrawsPerYear": 4
+  },
+  "addons": {
+    "buyShare": 0.3,
+    "spend": 1800,
+    "margin": 0.45,
+    "expCompanionsPerVisit": 0.2,
+    "expCompanionPrice": 1800,
+    "expCompanionCost": 1000,
+    "processing": 0.025,
+    "referralCommission": 0.12
+  },
+  "funnel": {
+    "leads": [
+      1070,
+      2015,
+      3148,
+      4114,
+      4911
+    ],
+    "conversion": 0.027,
+    "costPerLead": [
+      75,
+      75,
+      75,
+      75,
+      75
+    ],
+    "referralShare": [
+      0.15,
+      0.2,
+      0.25,
+      0.3,
+      0.35
+    ],
+    "cancelBeforeVisit": 0.25,
+    "withdraw": 0.03,
+    "refund": 0.5
+  },
+  "team": [
+    {
+      "id": "gm",
+      "name": "General manager (CEO)",
+      "cost": 4000,
+      "ratio": 0,
+      "min": 1,
+      "y1": 1,
+      "driver": "fixed",
+      "group": "ga"
+    },
+    {
+      "id": "coo",
+      "name": "Chief operating officer (COO)",
+      "cost": 4000,
+      "ratio": 0,
+      "min": 1,
+      "y1": 1,
+      "driver": "fixed",
+      "group": "ga"
+    },
+    {
+      "id": "ops",
+      "name": "Operations lead",
+      "cost": 3500,
+      "ratio": 0,
+      "min": 1,
+      "y1": 0.5,
+      "driver": "fixed",
+      "group": "ga"
+    },
+    {
+      "id": "clinical",
+      "name": "Clinical lead (part-time physician)",
+      "cost": 3000,
+      "ratio": 0,
+      "min": 1,
+      "y1": 1,
+      "driver": "fixed",
+      "group": "ga"
+    },
+    {
+      "id": "evidence",
+      "name": "Evidence analyst (part-time)",
+      "cost": 1200,
+      "ratio": 0,
+      "min": 1,
+      "y1": 1,
+      "driver": "fixed",
+      "group": "ga"
+    },
+    {
+      "id": "advisors",
+      "name": "Client advisors",
+      "cost": 4000,
+      "ratio": 100,
+      "min": 1,
+      "y1": 0.5,
+      "driver": "new",
+      "group": "sales"
+    },
+    {
+      "id": "care",
+      "name": "Care coordinators",
+      "cost": 2000,
+      "ratio": 60,
+      "min": 1,
+      "y1": 0.5,
+      "driver": "active",
+      "group": "care"
+    },
+    {
+      "id": "dietitians",
+      "name": "Dietitians",
+      "cost": 2200,
+      "ratio": 120,
+      "min": 1,
+      "y1": 0.75,
+      "driver": "active",
+      "group": "care"
+    },
+    {
+      "id": "coaches",
+      "name": "Performance coaches",
+      "cost": 2200,
+      "ratio": 120,
+      "min": 1,
+      "y1": 0.75,
+      "driver": "active",
+      "group": "care"
+    },
+    {
+      "id": "concierges",
+      "name": "Experience concierges",
+      "cost": 1800,
+      "ratio": 250,
+      "min": 1,
+      "y1": 0.5,
+      "driver": "visits",
+      "group": "care"
+    }
+  ],
+  "overheads": {
+    "office": 1500,
+    "legal": 30000,
+    "insurance": 25000,
+    "accounting": 18000,
+    "platformFee": 3000,
+    "platformFeeY1": 0,
+    "travel": 20000,
+    "brand": 1500,
+    "contingency": 0.07
+  },
+  "setup": {
+    "legal": 60000,
+    "brand": 20000,
+    "platform": 10000,
+    "clinical": 20000,
+    "recruitment": 6000,
+    "contracting": 15000,
+    "platformBalanceY2": 0
+  },
+  "finance": {
+    "inflation": [
+      0,
+      0.08,
+      0.05,
+      0.02,
+      0.02
+    ],
+    "upfront": 0.7,
+    "partnerUpfront": 0.65,
+    "tax": 0.25,
+    "buffer": 0.25,
+    "midYear": 0.5,
+    "reserve": [
+      0.2,
+      0.15,
+      0.1,
+      0.1,
+      0.1
+    ],
+    "payment": {
+      "deposit": 500,
+      "saleToStartMonths": 2,
+      "startShare": 0.7,
+      "balanceMonths": 6,
+      "byVisit": {
+        "annual": [
+          1
+        ],
+        "summerWinter": [
+          0.6,
+          0.4
+        ],
+        "seasonal": [
+          0.5,
+          0.25,
+          0.25
+        ]
+      }
+    }
+  },
+  "countries": {
+    "opened": [
+      1,
+      1,
+      1,
+      1,
+      0
+    ],
+    "oneOff": 10000,
+    "running": 0
+  },
+  "retention": {
+    "y3": 0.4,
+    "y4": 0.35
+  },
+  "scenarios": {
+    "base": {
+      "volume": 1,
+      "cac": 1,
+      "price": 1,
+      "renewal": 0.45,
+      "partnerCost": 1
+    },
+    "downside": {
+      "volume": 0.6,
+      "cac": 1.15,
+      "price": 0.95,
+      "renewal": 0.4,
+      "partnerCost": 1.05
+    },
+    "upside": {
+      "volume": 1.35,
+      "cac": 0.85,
+      "price": 1.05,
+      "renewal": 0.5,
+      "partnerCost": 0.95
+    }
+  },
+  "partners": {
+    "operator": 1,
+    "physicians": 0,
+    "revenueShare": 0,
+    "levers": [
+      {
+        "group": "operator",
+        "path": "overheads.office",
+        "with": 0,
+        "label": "Office and coworking, Istanbul",
+        "basis": "Desk space in the operator's office. Carried in kind in the plan, so the switch leaves it."
+      },
+      {
+        "group": "operator",
+        "path": "overheads.accounting",
+        "with": 9000,
+        "label": "Accounting, audit and admin",
+        "basis": "Shared back office. Carried in kind in the plan, so the switch leaves it."
+      },
+      {
+        "group": "operator",
+        "path": "setup.legal",
+        "with": 25000,
+        "label": "Set-up: legal, authorisations, US entity, consent pack",
+        "basis": "Operator already holds the authorisation and a Florida entity. Carried in kind in the plan, so the switch leaves it."
+      },
+      {
+        "group": "operator",
+        "path": "setup.contracting",
+        "with": 5000,
+        "label": "Set-up: partner contracting and site audits",
+        "basis": "Hospital and hotel contracts already in place. Carried in kind in the plan, so the switch leaves it."
+      },
+      {
+        "group": "operator",
+        "path": "team.ops.cost",
+        "with": 1750,
+        "label": "Operations lead (monthly cost)",
+        "basis": "Half-time lead with the operator. Carried in kind in the plan, so the switch leaves it."
+      },
+      {
+        "group": "operator",
+        "path": "overheads.legal",
+        "with": 18000,
+        "label": "Legal, regulatory and compliance (ongoing)",
+        "basis": "Plus International's health-tourism counsel and contract templates; programme-specific review stays."
+      },
+      {
+        "group": "operator",
+        "path": "delivery.hotelDiscount",
+        "with": 0.2,
+        "label": "Negotiated discount on hotel list rates",
+        "basis": "Plus International's volume rates instead of a new programme's."
+      },
+      {
+        "group": "operator",
+        "path": "setup.clinical",
+        "with": 10000,
+        "label": "Set-up: clinical method, library approval, mock journey",
+        "basis": "Hospital clinical governance; mock journey at cost."
+      },
+      {
+        "group": "operator",
+        "path": "team.clinical.cost",
+        "with": 1500,
+        "label": "Clinical lead (monthly cost)",
+        "basis": "Hospital appoints the clinical lead; half the time contributed."
+      },
+      {
+        "group": "operator",
+        "path": "delivery.hospitalDay.0",
+        "with": 850,
+        "label": "Hospital measurement day, Standard",
+        "basis": "Partner rate close to cost."
+      },
+      {
+        "group": "operator",
+        "path": "delivery.hospitalDay.1",
+        "with": 850,
+        "label": "Hospital measurement day, Premium",
+        "basis": "Partner rate close to cost."
+      },
+      {
+        "group": "operator",
+        "path": "delivery.physicianRate.0",
+        "with": 100,
+        "label": "Program physician hourly rate, Standard",
+        "basis": "Hospital physicians at partner rate."
+      },
+      {
+        "group": "operator",
+        "path": "delivery.physicianRate.1",
+        "with": 100,
+        "label": "Program physician hourly rate, Premium",
+        "basis": "Hospital physicians at partner rate."
+      },
+      {
+        "group": "operator",
+        "path": "team.dietitians.y1",
+        "with": 0.4,
+        "label": "Dietitians: share of the pilot year on payroll",
+        "basis": "Pilot-year hours from the hospital on demand; hire from year 2."
+      },
+      {
+        "group": "operator",
+        "path": "team.coaches.y1",
+        "with": 0.4,
+        "label": "Coaches: share of the pilot year on payroll",
+        "basis": "Pilot-year hours from the hospital on demand; hire from year 2."
+      },
+      {
+        "group": "physicians",
+        "path": "funnel.referralShare",
+        "with": 0.6,
+        "label": "New clients arriving through referral partners",
+        "basis": "Network physicians refer; 12% commission instead of marketing cost."
+      },
+      {
+        "group": "physicians",
+        "path": "funnel.conversion",
+        "with": 0.0378,
+        "label": "Lead-to-deposit conversion",
+        "basis": "Physician referrals and endorsement raise trust in the sales call (lead to deposit 2.7% → 3.8%, +40%)."
+      }
+    ]
+  },
+  "logic": {
+    "wholeClients": true,
+    "funnelStages": true,
+    "corrections62": true
+  },
+  "support": {
+    "marketingShare": 0.4,
+    "lagMonths": 12
+  },
+  "inKind": {
+    "by": "Plus International",
+    "team": [
+      "ops",
+      "care",
+      "concierges"
+    ],
+    "items": [
+      "overheads.office",
+      "overheads.accounting",
+      "setup.legal",
+      "setup.contracting",
+      "setup.recruitment"
+    ]
+  },
+  "noGrowth": {
+    "holdYear": 2
+  },
+  "monthly": {
+    "y1Cohorts": [
+      0,
+      0,
+      0,
+      0.5,
+      0,
+      0,
+      0.5,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "setupMonths": 3,
+    "marketingLeadMonths": 3
+  },
+  "rounds": {
+    "preSeedAmount": 200000,
+    "seedMonth": 9,
+    "seedAmount": 500000
+  },
+  "atron": {
+    "increase": 0,
+    "setupToEquity": 40000
+  }
+}

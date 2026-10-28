@@ -76,7 +76,7 @@ const ok65 = run("v6.5", "v65_inputs.json", "excel_v65_values.json", (R, X, chk)
   X.cumAfter.forEach((v, i) => chk(`monthly.cumAfter[M${i + 1}]`, R.monthly.rows[i].cumAfter, v));
 });
 
-const ok66 = run("v6.6", "../data/v6.json", "excel_v66_values.json", (R, X, chk) => {
+const ok66 = run("v6.6", "v66_inputs.json", "excel_v66_values.json", (R, X, chk) => {
   const B = R.scen.base;
   for (const [k, v] of Object.entries(X.years)) v.forEach((x, i) => chk(`${k}[Y${i + 1}]`, B.years[i][k], x));
   chk("cash need", R.funding, X.funding);

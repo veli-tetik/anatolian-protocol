@@ -19,7 +19,7 @@ Published with GitHub Pages at `/plan/` next to the presentation.
 | Monthly cash | First 36 months, the low point that sets the raise; pilot cohort timing |
 | Partners | Operator + hospital and physician network switches, what each takes off, and the staff and costs Plus International carries in kind |
 | Clients | New, renewing and programme years by package; renewals by programme year (the loss curve) |
-| Team | Headcount and cost by role and year, company payroll against staff carried in kind by Plus International |
+| Team | Headcount by role month by month (start months) and by year, and cost, company payroll against staff carried in kind by Plus International |
 | Operations | ATRON platform fees by year (base, per client, set-up, equity); volumes and spend with partners by year (hospital days, hotel nights, physician hours, labs, boxes); visits and hotel nights month by month |
 | Checks | Model rules every input must meet (errors) and results worth a second look (warnings) |
 | Versions | Starting points, saved versions, JSON export/import, share links, change list |
@@ -39,7 +39,7 @@ Published with GitHub Pages at `/plan/` next to the presentation.
 
 ## Files
 
-- `data/v6.json` — the current plan (v6.6, `Anatolian_Protocol_PL_Feasibility_v6.6.xlsx` as data), loaded by default and the reference that changes are shown against: v6.5 (payment per visit, two rounds of $200k + $500k, a light pilot year, a slimmer care team, ATRON fees flat in USD) with a CEO (general manager) and a COO at $4k a month each. `tools/v62_inputs.json` … `tools/v65_inputs.json` keep earlier inputs for the regression check
+- `data/v6.json` — the current plan (v6.7), loaded by default and the reference that changes are shown against: v6.6 (payment per visit, two rounds of $200k + $500k, a light pilot year, a slimmer care team, ATRON fees flat in USD, CEO and COO at $4k) with hiring month by month (`logic.monthlyStaff`): each role has a start month and, once started, is sized by the month's clients. The v6.7 workbook is not built yet; the latest workbook is v6.6. `tools/v62_inputs.json` … `tools/v66_inputs.json` keep earlier inputs for the regression check
 - `data/v5.json` — the v5 Excel model as data (all assumptions), kept for history and the regression check
 - `data/levers.json` — funding levers
 - `data/scenarios.json` — business scenarios: groups of cases, each a set of input changes on the plan

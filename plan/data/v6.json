@@ -1,7 +1,7 @@
 {
   "meta": {
-    "name": "v6.6 plan",
-    "note": "v6.2 with payment per visit (deposit at sale; before each visit the share for that visit, front-loaded: Annual 100%, Summer–Winter 60/40, Seasonal 50/25/25 of the rest), two rounds only (a $200k pre-seed and a $500k seed at the end of month 9) and a lighter pilot year so the pre-seed reaches the seed with the 25% buffer: Plus International partner rates (hospital, physicians, hotels, clinical lead, legal), a 5% founding-cohort discount and the ATRON platform fee waived in year 1 (set-up balance to equity). A slimmer care team: care coordinators 1 per 60 active clients (at least 1), dietitians and coaches 1 per 120, concierges 1 per 250 visits. ATRON platform fees are USD licence fees, flat in dollars (no Türkiye cost inflation); the $40k set-up balance is converted to equity in ATRON. Leadership: a CEO (general manager) and a COO at $4k a month each from month 1. 28/10/2026. All amounts USD, excl. VAT."
+    "name": "v6.7 plan",
+    "note": "v6.2 with payment per visit (deposit at sale; before each visit the share for that visit, front-loaded: Annual 100%, Summer–Winter 60/40, Seasonal 50/25/25 of the rest), two rounds only (a $200k pre-seed and a $500k seed at the end of month 9) and a lighter pilot year so the pre-seed reaches the seed with the 25% buffer: Plus International partner rates (hospital, physicians, hotels, clinical lead, legal), a 5% founding-cohort discount and the ATRON platform fee waived in year 1 (set-up balance to equity). A slimmer care team: care coordinators 1 per 60 active clients (at least 1), dietitians and coaches 1 per 120, concierges 1 per 250 visits. ATRON platform fees are USD licence fees, flat in dollars (no Türkiye cost inflation); the $40k set-up balance is converted to equity in ATRON. Leadership: a CEO (general manager) and a COO at $4k a month each from month 1. Hiring month by month: each role from its start month, sized by the month's clients (CEO, COO and a client advisor from month 1, clinical lead month 3, the first care team with the first clients in month 4, coach and evidence analyst from month 13). 28/10/2026. All amounts USD, excl. VAT."
   },
   "prices": {
     "annual": [
@@ -171,7 +171,8 @@
       "min": 1,
       "y1": 1,
       "driver": "fixed",
-      "group": "ga"
+      "group": "ga",
+      "start": 1
     },
     {
       "id": "coo",
@@ -181,7 +182,8 @@
       "min": 1,
       "y1": 1,
       "driver": "fixed",
-      "group": "ga"
+      "group": "ga",
+      "start": 1
     },
     {
       "id": "ops",
@@ -191,7 +193,8 @@
       "min": 1,
       "y1": 0.5,
       "driver": "fixed",
-      "group": "ga"
+      "group": "ga",
+      "start": 4
     },
     {
       "id": "clinical",
@@ -201,7 +204,8 @@
       "min": 1,
       "y1": 1,
       "driver": "fixed",
-      "group": "ga"
+      "group": "ga",
+      "start": 3
     },
     {
       "id": "evidence",
@@ -211,7 +215,8 @@
       "min": 1,
       "y1": 1,
       "driver": "fixed",
-      "group": "ga"
+      "group": "ga",
+      "start": 13
     },
     {
       "id": "advisors",
@@ -221,7 +226,8 @@
       "min": 1,
       "y1": 0.5,
       "driver": "new",
-      "group": "sales"
+      "group": "sales",
+      "start": 1
     },
     {
       "id": "care",
@@ -231,7 +237,8 @@
       "min": 1,
       "y1": 0.5,
       "driver": "active",
-      "group": "care"
+      "group": "care",
+      "start": 4
     },
     {
       "id": "dietitians",
@@ -241,7 +248,8 @@
       "min": 1,
       "y1": 0.75,
       "driver": "active",
-      "group": "care"
+      "group": "care",
+      "start": 4
     },
     {
       "id": "coaches",
@@ -251,7 +259,8 @@
       "min": 1,
       "y1": 0.75,
       "driver": "active",
-      "group": "care"
+      "group": "care",
+      "start": 13
     },
     {
       "id": "concierges",
@@ -261,7 +270,8 @@
       "min": 1,
       "y1": 0.5,
       "driver": "visits",
-      "group": "care"
+      "group": "care",
+      "start": 4
     }
   ],
   "overheads": {
@@ -492,7 +502,8 @@
   "logic": {
     "wholeClients": true,
     "funnelStages": true,
-    "corrections62": true
+    "corrections62": true,
+    "monthlyStaff": true
   },
   "support": {
     "marketingShare": 0.4,

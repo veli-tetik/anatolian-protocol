@@ -109,6 +109,42 @@
     return { volumes: v, usd, total: sum(Object.values(usd)) };
   }
 
+  // Monthly hiring (logic.monthlyStaff): every role starts in its start month and, once started, is sized month by month:
+  // fixed roles at their minimum; the others by the month's active clients, the year's acquired clients, or the visits of the
+  // last twelve months. Clients by month follow the pilot cohorts in year 1 and an even spread after; renewals come twelve
+  // months after a start. Returns 60 months of headcount by role, and the drivers.
+  function staffPlan(E, UE, S, newY, n, whole) {
+    const team = E.team, base = E.scenarios.base.renewal, M60 = YEARS * 12;
+    const comp = newY.map((v) => n(v * E.prices.companionShare)), acq = newY.map((v, i) => v - comp[i]);
+    const nw = [];
+    for (let y = 0; y < YEARS; y++) {
+      const w = y === 0 ? E.monthly.y1Cohorts : Array(12).fill(1 / 12);
+      nw.push(...(whole ? allocate(newY[y], w) : w.map((x) => x * newY[y])));
+    }
+    const r2 = [], r3 = [], r4 = [], started = [], active = [], visits = [], fte = [];
+    for (let m = 0; m < M60; m++) {
+      const back = m - 12;
+      r2.push(back >= 0 ? nw[back] * S.renewal : 0);
+      r3.push(back >= 0 ? r2[back] * E.retention.y3 * S.renewal / base : 0);
+      r4.push(back >= 0 ? (r3[back] + r4[back]) * E.retention.y4 * S.renewal / base : 0);
+      started.push(nw[m] + r2[m] + r3[m] + r4[m]);
+      let a = 0; for (let k = Math.max(0, m - 11); k <= m; k++) a += started[k];
+      active.push(a);
+      let v = started[m];
+      UE.cols.forEach((c) => { for (let q = 1; q < c.visits; q++) { const b = m - Math.round(q * 12 / c.visits); if (b >= 0) v += c.share * started[b]; } });
+      visits.push(v);
+      let v12 = 0; for (let k = Math.max(0, m - 11); k <= m; k++) v12 += visits[k];
+      const y = Math.floor(m / 12), f = {};
+      for (const t of team) {
+        if (m + 1 < (t.start || 1)) { f[t.id] = 0; continue; }
+        const need = t.driver === "new" ? acq[y] / t.ratio : t.driver === "active" ? active[m] / t.ratio : t.driver === "visits" ? v12 / t.ratio : 0;
+        f[t.id] = t.driver === "fixed" ? t.min : Math.max(t.min, roundUp(need));
+      }
+      fte.push(f);
+    }
+    return { fte, active, visits, started };
+  }
+
   // Partner case: switch groups in, apply their lever values ("Used now" column).
   function resolve(A) {
     const E = clone(A);
@@ -200,6 +236,7 @@
     const split = (total) => (whole ? allocate(total, shares) : shares.map((x) => total * x));
     const dot = (counts, k) => sum(counts.map((c, j) => c * UE.cols[j][k]));
     let activeCountries = 0;
+    const staff = E.logic && E.logic.monthlyStaff ? staffPlan(E, UE, S, plan.map((x) => n(x * S.volume)), n, whole) : null;
     // Costs carried by a partner in kind (Plus International): worked out in full, kept out of the P&L.
     const IK = E.inKind || {};
     const ikTeam = new Set(IK.team || []), ikItems = new Set(IK.items || []);
@@ -276,9 +313,14 @@
         else if (t.driver === "visits") need = r.visits / t.ratio;
         fte[t.id] = t.driver === "fixed" ? t.min : Math.max(t.min, roundUp(need));
       }
+      // with monthly hiring: year-end headcount, and cost month by month (the pilot-year factor no longer applies)
+      const months = staff ? staff.fte.slice(i * 12, i * 12 + 12) : null;
+      if (months) for (const t of team) fte[t.id] = months[11][t.id];
       r.fte = fte;
       r.fteTotal = sum(Object.values(fte));
-      const pay = (t) => fte[t.id] * t.cost * 12 * r.costIdx * (pilot * t.y1 + (1 - pilot));
+      r.fteMonthly = months;
+      const pay = (t) => (months ? sum(months.map((f) => f[t.id])) * t.cost * r.costIdx : fte[t.id] * t.cost * 12 * r.costIdx * (pilot * t.y1 + (1 - pilot)));
+      r.salaryByMonth = months ? months.map((f) => sum(team.filter((t) => !ikTeam.has(t.id)).map((t) => f[t.id] * t.cost * r.costIdx))) : null;
       r.teamCost = {};
       r.inKindTeam = {};
       for (const t of team) {
@@ -394,7 +436,7 @@
         r.cumAfterReserve = r.cumCash - r.unearned * F.reserve[i];
       });
     }
-    const out = { years: y };
+    const out = { years: y, staff };
     out.peakBeforeReserve = -Math.min(0, ...y.map((r) => r.cumCash));
     out.peakAfterReserve = -Math.min(0, ...y.map((r) => r.cumAfterReserve));
     out.firstEbitda = (y.findIndex((r) => r.ebitda > 0) + 1) || null;
@@ -490,7 +532,7 @@
       r.leadSpend = (m === 0 ? newM.slice(0, L + 1).reduce((a, x) => a + x, 0) * Y[0].acquisition / Math.max(Y[0].newClients, 0.0001) : newM[m + L] * perLead);
       r.acq = r.leadSpend + r.newC * yr.referral / Math.max(yr.newClients, 0.0001);
       r.processing = (fix ? r.enrolPay + r.balance + r.instal + r.addonsGross : r.cashIn) * E.addons.processing;
-      r.salaries = (yr.careTeam + yr.advisors + yr.leadership) / 12;
+      r.salaries = yr.salaryByMonth ? yr.salaryByMonth[m % 12] : (yr.careTeam + yr.advisors + yr.leadership) / 12;
       r.overheads = (yr.brand + yr.office + yr.legal + yr.insurance + yr.accounting + yr.platformFee + yr.travel + yr.contingency) / 12;
       r.setup = m < setupM ? Y[0].setup / setupM : (m === 12 ? Y[1].setup : (m === 24 ? Y[2].setup : 0));
       r.cashOut = r.firstVisit + r.restYear + r.acq + r.processing + r.salaries + r.overheads + r.setup;

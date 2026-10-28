@@ -64,6 +64,7 @@
       if (!isInt(t.min) || t.min < 0) err(`team.${t.id}.min`, `${t.name}: minimum FTE must be a whole number of people.`);
       if (t.driver !== "fixed" && !(t.ratio > 0)) err(`team.${t.id}.ratio`, `${t.name}: clients per FTE must be above 0.`);
       if (t.y1 < 0 || t.y1 > 1) err(`team.${t.id}.y1`, `${t.name}: the pilot-year factor must be between 0% and 100%.`);
+      if (A.logic && A.logic.monthlyStaff && (!isInt(t.start || 1) || (t.start || 1) < 1 || (t.start || 1) > 60)) err(`team.${t.id}.start`, `${t.name}: the start month must be a whole month from 1 to 60.`);
     }
 
     // scenarios
