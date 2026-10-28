@@ -4,11 +4,11 @@
     {
       "id": "collection",
       "title": "Collection",
-      "note": "When clients pay. Benchmark: a €300 deposit (8%), treatment a median 61 days later, the balance on the day.",
+      "note": "When clients pay. Plan: a $500 deposit at sale, then before each visit the share for that visit, front-loaded (Annual 100%, Summer–Winter 60/40, Seasonal 50/25/25 of the rest). Benchmark: a €300 deposit, treatment a median 61 days later, the balance on the day.",
       "cases": [
         {
           "id": "plan",
-          "label": "Plan: 70% of the rest at the first visit, 30% over 6 months",
+          "label": "Plan: per visit, front-loaded (100 / 60–40 / 50–25–25)",
           "changes": []
         },
         {
@@ -16,6 +16,10 @@
           "label": "Paid in full at the first visit",
           "note": "As the benchmark.",
           "changes": [
+            {
+              "path": "finance.payment.byVisit",
+              "value": null
+            },
             {
               "path": "finance.payment.startShare",
               "value": 1
@@ -27,12 +31,17 @@
           ]
         },
         {
-          "id": "half",
-          "label": "50% at the first visit, 50% over 6 months",
+          "id": "v62",
+          "label": "70% at the first visit, 30% over 6 months",
+          "note": "The v6.2 schedule.",
           "changes": [
             {
+              "path": "finance.payment.byVisit",
+              "value": null
+            },
+            {
               "path": "finance.payment.startShare",
-              "value": 0.5
+              "value": 0.7
             },
             {
               "path": "finance.payment.balanceMonths",
@@ -41,9 +50,36 @@
           ]
         },
         {
+          "id": "even",
+          "label": "Per visit, equal shares (100 / 50–50 / 33–33–33)",
+          "changes": [
+            {
+              "path": "finance.payment.byVisit",
+              "value": {
+                "annual": [
+                  1
+                ],
+                "summerWinter": [
+                  0.5,
+                  0.5
+                ],
+                "seasonal": [
+                  0.3333333333333333,
+                  0.3333333333333333,
+                  0.3333333333333333
+                ]
+              }
+            }
+          ]
+        },
+        {
           "id": "quarter",
           "label": "25% at the first visit, the rest over 12 months",
           "changes": [
+            {
+              "path": "finance.payment.byVisit",
+              "value": null
+            },
             {
               "path": "finance.payment.startShare",
               "value": 0.25
@@ -51,6 +87,25 @@
             {
               "path": "finance.payment.balanceMonths",
               "value": 12
+            }
+          ]
+        },
+        {
+          "id": "monthly",
+          "label": "Paid monthly over the programme year",
+          "note": "Subscription-style: a twelfth at the first visit and eleven monthly payments.",
+          "changes": [
+            {
+              "path": "finance.payment.byVisit",
+              "value": null
+            },
+            {
+              "path": "finance.payment.startShare",
+              "value": 0.08333333333333333
+            },
+            {
+              "path": "finance.payment.balanceMonths",
+              "value": 11
             }
           ]
         },

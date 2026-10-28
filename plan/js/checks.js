@@ -74,29 +74,6 @@
 
     // partners
     if (A.partners.revenueShare < 0 || A.partners.revenueShare > 1) err("partners.revenueShare", "Partner revenue share must be between 0% and 100%.");
-
-    // no-growth case and in-kind costs
-    const hy = A.noGrowth ? A.noGrowth.holdYear : 1;
-    if (!isInt(hy) || hy < 1 || hy > 5) err("noGrowth.holdYear", "The no-growth year must be a whole number from 1 to 5.");
-
-    // funding rounds
-    const rd = A.rounds || {};
-    if (!isInt(rd.seedMonth) || rd.seedMonth < 1 || rd.seedMonth > 35) err("rounds.seedMonth", "The seed month must be a whole number from 1 to 35.");
-    const ml = (A.monthly && A.monthly.marketingLeadMonths) || 0;
-    if (!isInt(ml) || ml < 0 || ml > 12) err("monthly.marketingLeadMonths", "Marketing lead time must be a whole number of months from 0 to 12.");
-
-    // payment schedule and funnel
-    const pay = A.finance.payment;
-    if (pay) {
-      if (!(pay.deposit >= 0)) err("finance.payment.deposit", "The deposit cannot be negative.");
-      if (pay.startShare < 0 || pay.startShare > 1) err("finance.payment.startShare", "The share paid at the first visit must be between 0% and 100%.");
-      for (const k of ["saleToStartMonths", "balanceMonths"]) if (!isInt(pay[k]) || pay[k] < 0 || pay[k] > 12) err("finance.payment." + k, "Months must be a whole number from 0 to 12.");
-      if ((pay.saleToStartMonths || 0) > ml) warn("monthly.marketingLeadMonths", "Marketing is paid after the deposit: the marketing lead time should be at least the months from deposit to first visit.");
-    }
-
-    const sl = A.support && A.support.lagMonths;
-    if (sl != null && (!isInt(sl) || sl < 0 || sl > 36)) err("support.lagMonths", "Support lag must be a whole number of months from 0 to 36.");
-
     // pilot timing
     const coh = A.monthly.y1Cohorts, cohSum = coh.reduce((a, b) => a + b, 0);
     if (Math.abs(cohSum - 1) > 0.0005) err("monthly.y1Cohorts.0", `Pilot cohorts add up to ${pctTxt(cohSum)} of year-1 clients; they must total 100%.`);
@@ -111,12 +88,21 @@
       const B = R.scen.base, Y = B.years;
       R.UE.cols.forEach((c, i) => { if (c.contribution < 0) warn("prices", `${PKG[i]} loses money on every client before acquisition (${Math.round(c.contribution).toLocaleString("en-GB")} USD).`); });
       if (Y[4].ebitda < 0) warn("", "The base case is still loss-making in year 5.");
+      // the two funding rounds against the plan's cash
+      const Rd = R.rounds, usd = (v) => "$" + Math.round(v).toLocaleString("en-GB");
+      if (Rd) {
+        if (Rd.preLasts < Rd.seedMonth) warn("rounds.preSeedAmount", `The ${usd(Rd.pre)} pre-seed runs out in month ${Rd.preLasts + 1}, before the seed at the end of month ${Rd.seedMonth}; it needs ${usd(Rd.preNeeded)} with the buffer.`);
+        else if (Rd.preNeeded > Rd.pre + 0.5) warn("rounds.preSeedAmount", `The ${usd(Rd.pre)} pre-seed reaches month ${Rd.seedMonth} without the buffer; with it, it would need ${usd(Rd.preNeeded)}.`);
+        if (R.funding > Rd.total + 0.5) warn("rounds.seedAmount", `Both rounds together (${usd(Rd.total)}) are ${usd(R.funding - Rd.total)} short of the cash need.`);
+      }
+      // payment shares per visit must add up for every package
+      const BV = A.finance && A.finance.payment && A.finance.payment.byVisit;
+      if (BV) for (const [k, v] of Object.entries(BV)) {
+        const t = (v || []).reduce((a, b) => a + b, 0);
+        if (Math.abs(t - 1) > 0.0005) err(`finance.payment.byVisit.${k}`, `Payment shares per visit for the ${k === "summerWinter" ? "Summer–Winter" : k} package add up to ${pctTxt(t)}; they must total 100%.`);
+      }
       if (Y.slice(1).some((y) => y.grossMargin < 0)) warn("", "Gross margin is negative after the pilot year.");
       if (R.noGrowth && R.noGrowth.years[4].ebitda < 0) warn("noGrowth.holdYear", "Without growth investment the plan is still loss-making in year 5.");
-      if (R.rounds && R.rounds.fixed && R.rounds.pre < R.rounds.preNeeded - 0.5) warn("rounds.preSeedAmount", R.rounds.preLasts < R.rounds.seedMonth
-        ? `The pre-seed runs out in month ${R.rounds.preLasts + 1}, before the seed in month ${R.rounds.seedMonth}.`
-        : `The pre-seed reaches the seed month but with less than the ${Math.round(A.finance.buffer * 100)}% buffer: ${Math.round(R.rounds.preNeeded).toLocaleString("en-GB")} USD would keep it.`);
-      if (R.rounds && R.rounds.surplus < -0.5) warn("rounds.seedAmount", `The seed is ${Math.round(-R.rounds.surplus).toLocaleString("en-GB")} USD short of what the plan needs after the pre-seed.`);
       if (A.logic && A.logic.funnelStages) Y.forEach((y, i) => {
         const spend = A.funnel.leads[i] * A.funnel.costPerLead[i] * (A.scenarios.base.cac || 1);
         if (spend > 0 && Math.abs(y.acquisition - spend) / spend > 0.05 && !(A.partners.operator || A.partners.physicians))

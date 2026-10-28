@@ -1,7 +1,7 @@
 {
   "meta": {
-    "name": "v6 lean plan",
-    "note": "v5 with: a staged funnel benchmarked on a comparable health-tourism business, Oct 2025 – Mar 2026: $75 per lead (benchmark €15), 2.7% of leads pay a deposit and 75% of deposits reach the first visit (2.0% lead to client; benchmark 3.4% and ~70–75%), lead spend paid 3 months before the first visit; stress case $150 per lead, single-round funding $736k. Payment as the benchmark: $500 deposit at sale, first visit 2 months later (benchmark median 61 days), 70% of the rest at the first visit and 30% in 6 monthly instalments, inside the programme year. A smaller client plan (30 → 180 new clients a year); referral partners build up from 15% of new clients in year 1 to 35% in year 5 (the benchmark has almost none), so paid leads bring 21 of 30 clients in year 1; Ministry of Trade marketing support, 40% of client acquisition and brand spend received a year later; staff and infrastructure carried by Plus International, worked out but kept out of the P&L. Funding in two rounds: a $250k pre-seed and a $500k seed at the end of month 9; to make the pre-seed reach the seed with the 25% buffer, the pilot year runs lean (general manager and client advisors at half cost in year 1; launch brand $20k, team travel $20k a year, brand and content $1.5k a month). 28/10/2026. All amounts USD, excl. VAT."
+    "name": "v6.3 plan",
+    "note": "v6.2 with payment per visit (deposit at sale; before each visit the share for that visit, front-loaded: Annual 100%, Summer–Winter 60/40, Seasonal 50/25/25 of the rest) and two rounds only: a $200k pre-seed and a $500k seed at the end of month 9. 28/10/2026. All amounts USD, excl. VAT."
   },
   "prices": {
     "annual": [
@@ -169,7 +169,7 @@
       "cost": 6000,
       "ratio": 0,
       "min": 1,
-      "y1": 0.5,
+      "y1": 1,
       "driver": "fixed",
       "group": "ga"
     },
@@ -298,7 +298,21 @@
       "deposit": 500,
       "saleToStartMonths": 2,
       "startShare": 0.7,
-      "balanceMonths": 6
+      "balanceMonths": 6,
+      "byVisit": {
+        "annual": [
+          1
+        ],
+        "summerWinter": [
+          0.6,
+          0.4
+        ],
+        "seasonal": [
+          0.5,
+          0.25,
+          0.25
+        ]
+      }
     }
   },
   "countries": {
@@ -349,49 +363,49 @@
         "path": "overheads.office",
         "with": 0,
         "label": "Office and coworking, Istanbul",
-        "basis": "Desk space in the operator's office."
+        "basis": "Desk space in the operator's office. Carried in kind in the plan, so the switch leaves it."
       },
       {
         "group": "operator",
         "path": "overheads.accounting",
         "with": 9000,
         "label": "Accounting, audit and admin",
-        "basis": "Shared back office; the program keeps its own audit."
-      },
-      {
-        "group": "operator",
-        "path": "overheads.legal",
-        "with": 18000,
-        "label": "Legal, regulatory and compliance (ongoing)",
-        "basis": "The operator's health-tourism counsel and contract templates."
+        "basis": "Shared back office. Carried in kind in the plan, so the switch leaves it."
       },
       {
         "group": "operator",
         "path": "setup.legal",
         "with": 25000,
         "label": "Set-up: legal, authorisations, US entity, consent pack",
-        "basis": "Operator already holds the authorisation and a Florida entity."
+        "basis": "Operator already holds the authorisation and a Florida entity. Carried in kind in the plan, so the switch leaves it."
       },
       {
         "group": "operator",
         "path": "setup.contracting",
         "with": 5000,
         "label": "Set-up: partner contracting and site audits",
-        "basis": "Hospital and hotel contracts already in place."
+        "basis": "Hospital and hotel contracts already in place. Carried in kind in the plan, so the switch leaves it."
       },
       {
         "group": "operator",
         "path": "team.ops.cost",
         "with": 1750,
         "label": "Operations lead (monthly cost)",
-        "basis": "Transfers, hotels and logistics run by the operator; half-time lead."
+        "basis": "Half-time lead with the operator. Carried in kind in the plan, so the switch leaves it."
+      },
+      {
+        "group": "operator",
+        "path": "overheads.legal",
+        "with": 18000,
+        "label": "Legal, regulatory and compliance (ongoing)",
+        "basis": "Plus International's health-tourism counsel and contract templates; programme-specific review stays."
       },
       {
         "group": "operator",
         "path": "delivery.hotelDiscount",
         "with": 0.2,
         "label": "Negotiated discount on hotel list rates",
-        "basis": "The operator's volume rates instead of a new program's."
+        "basis": "Plus International's volume rates instead of a new programme's."
       },
       {
         "group": "operator",
@@ -450,13 +464,6 @@
         "basis": "Pilot-year hours from the hospital on demand; hire from year 2."
       },
       {
-        "group": "operator",
-        "path": "funnel.costPerLead.*",
-        "with": 60,
-        "label": "Cost per qualified lead",
-        "basis": "Operator's ad accounts, call centre, agents and patient database (−20% on $75)."
-      },
-      {
         "group": "physicians",
         "path": "funnel.referralShare",
         "with": 0.6,
@@ -467,14 +474,15 @@
         "group": "physicians",
         "path": "funnel.conversion",
         "with": 0.0378,
-        "label": "Lead-to-client conversion",
-        "basis": "Physician-led scientific board raises trust in the sales call (lead to deposit 2.7% → 3.8%, the same +40% as in v5)."
+        "label": "Lead-to-deposit conversion",
+        "basis": "Physician referrals and endorsement raise trust in the sales call (lead to deposit 2.7% → 3.8%, +40%)."
       }
     ]
   },
   "logic": {
     "wholeClients": true,
-    "funnelStages": true
+    "funnelStages": true,
+    "corrections62": true
   },
   "support": {
     "marketingShare": 0.4,
@@ -517,7 +525,7 @@
     "marketingLeadMonths": 3
   },
   "rounds": {
-    "preSeedAmount": 250000,
+    "preSeedAmount": 200000,
     "seedMonth": 9,
     "seedAmount": 500000
   }

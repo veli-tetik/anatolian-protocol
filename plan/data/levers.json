@@ -1,12 +1,12 @@
 {
-  "note": "Levers that lower the funding to raise. Each lever is a set of input changes on top of the loaded plan; the Funding page applies them in this order and shows what each one takes off. Prudence settings (prepayment reserve, 25% buffer) are deliberately not levers.",
+  "note": "Levers that lower the cash need, on top of the loaded plan. The Cash levers page applies them in this order and shows what each one takes off. Prudence settings (prepayment reserve, 25% buffer) are deliberately not levers; neither are costs Plus International already carries in kind.",
   "levers": [
     {
       "id": "operator",
       "group": "Partners",
-      "label": "Health-tourism operator + university hospital in",
-      "short": "Operator + hospital",
-      "detail": "International Plus with Atlas University Hospital: office, back office, authorisations, hotel rates, hospital day and physicians at partner rates. Paid in shares (0% revenue share).",
+      "label": "Partner rates from Plus International and its partner hospital",
+      "short": "Partner rates",
+      "detail": "Measurement day $850 (from $1,000), physicians $100 an hour (from $120), clinical lead at half cost, hotel discount 20% (from 10%), ongoing legal $18k (from $30k), clinical set-up $10k (from $20k), pilot-year dietitians and coaches from the hospital on demand. Paid in shares (0% revenue share).",
       "changes": [
         {
           "path": "partners.operator",
@@ -19,7 +19,7 @@
       "group": "Partners",
       "label": "Physician network in",
       "short": "Physician network",
-      "detail": "US Camp physician network: 60% of new clients by referral (35% alone), lead conversion 40% higher than alone. Paid in shares.",
+      "detail": "Referring physicians in the US and target countries: 60% of new clients by referral (plan 15% → 35%), lead to deposit 3.8% (plan 2.7%). Paid in shares.",
       "changes": [
         {
           "path": "partners.physicians",
@@ -28,15 +28,23 @@
       ]
     },
     {
-      "id": "upfront",
+      "id": "fullpay",
       "group": "Payment terms",
-      "label": "90% of the package paid at enrolment",
-      "short": "90% upfront",
-      "detail": "Instead of 70% now and 30% around month six. Premium programs of this kind are usually paid in full in advance.",
+      "label": "Paid in full at the first visit",
+      "short": "Paid in full",
+      "detail": "The rest of the price after the deposit is paid at the first visit, as at the benchmark business (98% of online payments on the operation day), instead of a share before each visit.",
       "changes": [
         {
-          "path": "finance.upfront",
-          "value": 0.9
+          "path": "finance.payment.byVisit",
+          "value": null
+        },
+        {
+          "path": "finance.payment.startShare",
+          "value": 1
+        },
+        {
+          "path": "finance.payment.balanceMonths",
+          "value": 0
         }
       ]
     },
@@ -67,90 +75,6 @@
         {
           "path": "setup.platformBalanceY2",
           "value": 0
-        }
-      ]
-    },
-    {
-      "id": "team",
-      "group": "Lean pilot",
-      "label": "Lean pilot-year team",
-      "short": "Lean pilot team",
-      "detail": "Founder-led general manager at half cost in year 1; operations lead, client advisors, care coordinators and concierges at 50% of the pilot year (75% now). Full team from year 2.",
-      "changes": [
-        {
-          "path": "team.gm.y1",
-          "value": 0.5
-        },
-        {
-          "path": "team.ops.y1",
-          "value": 0.5
-        },
-        {
-          "path": "team.advisors.y1",
-          "value": 0.5
-        },
-        {
-          "path": "team.care.y1",
-          "value": 0.5
-        },
-        {
-          "path": "team.concierges.y1",
-          "value": 0.5
-        }
-      ]
-    },
-    {
-      "id": "spend",
-      "group": "Lean pilot",
-      "label": "Lean pilot-year spending",
-      "short": "Lean pilot spend",
-      "detail": "Brand and website set-up $20k (from $40k), recruitment $6k (from $12k), team travel and events $20k/yr (from $40k), fixed content $1.5k/month (from $3k).",
-      "changes": [
-        {
-          "path": "setup.brand",
-          "value": 20000
-        },
-        {
-          "path": "setup.recruitment",
-          "value": 6000
-        },
-        {
-          "path": "overheads.travel",
-          "value": 20000
-        },
-        {
-          "path": "overheads.brand",
-          "value": 1500
-        }
-      ]
-    },
-    {
-      "id": "cohorts",
-      "group": "Timing",
-      "label": "Set-up in two months, pilot cohorts in months 3 and 6",
-      "short": "Cohorts M3, M6",
-      "detail": "Set-up is finished in two months instead of three, so the founding cohort starts in month 3 instead of month 4; the second cohort follows in month 6.",
-      "changes": [
-        {
-          "path": "monthly.setupMonths",
-          "value": 2
-        },
-        {
-          "path": "monthly.y1Cohorts",
-          "value": [
-            0,
-            0,
-            0.5,
-            0,
-            0,
-            0.5,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0
-          ]
         }
       ]
     }

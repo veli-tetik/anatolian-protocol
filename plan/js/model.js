@@ -59,13 +59,39 @@
     else o[last] = value;
   }
 
+  // Payment profile: the share of what a client owes after the deposit that is paid k months after the first
+  // visit (index k). Per visit (finance.payment.byVisit): each package pays its visit shares before each visit,
+  // visits spread evenly over the programme year, packages weighted by their share of programme value.
+  // Otherwise: startShare at the first visit and the rest in balanceMonths equal monthly instalments.
+  function payProfile(PAY, UE) {
+    const p = Array(25).fill(0);
+    if (PAY.byVisit) {
+      let tot = 0;
+      for (const c of UE.cols) {
+        const n = Math.max(1, Math.round(c.visits)), w = c.share * c.price;
+        let sh = PAY.byVisit[c.pkg];
+        if (!Array.isArray(sh) || sh.length !== n) sh = Array(n).fill(1 / n);
+        const t = sh.reduce((a, b) => a + b, 0) || 1;
+        sh.forEach((x, j) => { p[Math.round(j * 12 / n)] += w * x / t; });
+        tot += w;
+      }
+      return p.map((x) => (tot ? x / tot : 0));
+    }
+    const B = PAY.balanceMonths || 0, a = B ? PAY.startShare : 1;
+    p[0] = a;
+    for (let k = 1; k <= B; k++) p[k] = (1 - a) / B;
+    return p;
+  }
+
   // Partner case: switch groups in, apply their lever values ("Used now" column).
   function resolve(A) {
     const E = clone(A);
     const P = A.partners;
     const alone = { conversion: A.funnel.conversion, referralShare: A.funnel.referralShare };
+    const IK = A.inKind || {};
+    const inKind = new Set([...(IK.items || []), ...(IK.team || []).flatMap((id) => [`team.${id}.cost`, `team.${id}.y1`])]);
     for (const lv of P.levers) {
-      if (P[lv.group] === 1) setPath(E, lv.path, lv.with);
+      if (P[lv.group] === 1 && !inKind.has(lv.path)) setPath(E, lv.path, lv.with);
     }
     if (Math.max(P.operator, P.physicians) === 1) E.addons.processing = A.addons.processing + P.revenueShare;
     E._alone = alone;
@@ -104,7 +130,7 @@
         const renewContribution = renewPrice * (1 - E.addons.processing) - delivery;
         const twoYear = afterAcq + E.scenarios.base.renewal * renewContribution;
         cols.push({
-          name: p.name + (lvl ? " · Premium" : " · Standard"), share, visits, price,
+          pkg: p.id, name: p.name + (lvl ? " · Premium" : " · Standard"), share, visits, price,
           first, later, physician, draws, tele, box, support, report, platform, wear, delivery,
           processing, referral, contribution, contributionPct: price ? contribution / price : 0,
           acquisition, afterAcq, renewPrice, renewContribution, twoYear,
@@ -156,6 +182,9 @@
     // Payment schedule (finance.payment): deposit at sale, a share of the rest at the first visit, the remainder
     // in monthly instalments. Absent (v5): finance.upfront at enrolment, the balance six months later.
     const PAY = F.payment || null;
+    // v6.2 corrections: referral commission on the undiscounted price, support also on the launch brand
+    // and on same-year spend when the lag is under a year
+    const fix = !!(E.logic && E.logic.corrections62);
 
     for (let i = 0; i < YEARS; i++) {
       const r = {};
@@ -231,7 +260,8 @@
       r.addonDelivery = mid * (r.bAddon * (1 - E.addons.margin) + r.expCompanions * E.addons.expCompanionCost * r.costIdx)
         + (1 - mid) * (p.bAddon * (1 - E.addons.margin) + p.expCompanions * E.addons.expCompanionCost * p.costIdx);
       r.processing = r.revenue * E.addons.processing;
-      r.referral = r.referred * E.addons.referralCommission * r.bNew / Math.max(r.newClients, 0.0001);
+      r.referral = r.referred * E.addons.referralCommission * r.bNew / Math.max(r.newClients, 0.0001)
+        / (fix ? 1 - compShare * E.prices.companionDiscount : 1);
       r.careTeam = sum(team.filter((t) => t.group === "care").map((t) => r.teamCost[t.id]));
       r.costOfService = r.partnerDelivery + r.addonDelivery + r.processing + r.referral + r.careTeam;
       r.grossProfit = r.revenue - r.costOfService;
@@ -266,11 +296,11 @@
       r.contingency = (r.salesMarketing + r.ga + r.setup) * O.contingency;
       r.opex = r.salesMarketing + r.ga + r.setup + r.contingency;
       r.inKind = sum(Object.values(r.inKindTeam)) + sum(Object.values(r.inKindItems));
-      r.mktEligible = r.acquisition + r.brand;
+      r.mktEligible = r.acquisition + r.brand + (fix && pilot && !ikItems.has("setup.brand") ? su.brand : 0);
       // support arrives lag months after the spend; with spend even over its year, a lag of 12k + q months
       // brings (12 - q)/12 of year i-k's spend and q/12 of year i-k-1's
       const lag = supportLag(SP), lk = Math.floor(lag / 12), lq = lag % 12;
-      const elig = (j) => (j >= 0 && j < i ? y[j].mktEligible : 0);
+      const elig = (j) => (j >= 0 && j < i ? y[j].mktEligible : fix && j === i ? r.mktEligible : 0);
       r.marketingSupport = (SP.marketingShare || 0) * (elig(i - lk) * (12 - lq) / 12 + elig(i - lk - 1) * lq / 12);
       r.ebitda = r.grossProfit - r.opex + r.marketingSupport;
       r.ebitdaMargin = r.revenue ? r.ebitda / r.revenue : 0;
@@ -286,7 +316,11 @@
       if (PAY) {
         // share of a year's programme value collected in that year: deposit and first-visit payment in the
         // start year; instalments over B months after the first visit, of which 1 - B/24 fall in-year on average
-        const inYear = (dep) => dep + (1 - dep) * (PAY.startShare + (1 - PAY.startShare) * Math.max(0, 1 - PAY.balanceMonths / 24));
+        // per visit: a payment k months after a start spread evenly over the year falls in that year (12 - k)/12 of the time
+        const prof = PAY.byVisit ? payProfile(PAY, UE) : null;
+        const inYear = prof
+          ? (dep) => dep + (1 - dep) * prof.reduce((a, x, k) => a + x * Math.max(0, (12 - k) / 12), 0)
+          : (dep) => dep + (1 - dep) * (PAY.startShare + (1 - PAY.startShare) * Math.max(0, 1 - PAY.balanceMonths / 24));
         const depShare = r.newClients ? Math.min(1, PAY.deposit * r.priceIdx / (r.bNew / r.newClients)) : 0;
         const uN = inYear(depShare), uR = inYear(0);
         const wrY = (b) => b * (1 + (r.bNew + r.bRenew ? r.refunds / (r.bNew + r.bRenew) : 0));
@@ -344,7 +378,9 @@
     const newM = [];
     const L = E.monthly.marketingLeadMonths || 0;
     const PAY = F.payment || null, SL = PAY ? PAY.saleToStartMonths || 0 : 0;
+    const prof = PAY ? payProfile(PAY, UE) : null;
     const stages = !!(E.logic && E.logic.funnelStages);
+    const fix = !!(E.logic && E.logic.corrections62);
     for (let yi = 0; yi < (L || SL ? 4 : 3); yi++) {
       const w = yi === 0 ? E.monthly.y1Cohorts : Array(12).fill(1 / 12);
       newM.push(...(whole ? allocate(Y[yi].newClients, w) : w.map((x) => x * Y[yi].newClients)));
@@ -377,18 +413,23 @@
         // month 1 also takes the deposits of clients who start within the deposit lead time
         const starting = m === 0 ? newM.slice(0, SL + 1).reduce((x, v) => x + v, 0) : newM[m + SL];
         r.enrolPay = starting * (1 + cancelRate) * PAY.deposit * ys.priceIdx;
+        r.forfeitPaid = starting * cancelRate * PAY.deposit * ys.priceIdx;   // never delivered, so never held back
         const owed = (r.newC * (r.priceNew - PAY.deposit * yr.priceIdx) + r.renewC * r.priceRenew) * wr;
-        const B = PAY.balanceMonths || 0, a = B ? PAY.startShare : 1;
-        r.balance = owed * a;
-        r.instBase = owed * (1 - a);
-        r.instal = 0; for (let k = 1; k <= B; k++) if (m - k >= 0) r.instal += rows[m - k].instBase / B;
+        r.owed = owed;
+        r.balance = owed * prof[0];
+        r.instal = 0; for (let k = 1; k < prof.length; k++) if (m - k >= 0 && prof[k]) r.instal += rows[m - k].owed * prof[k];
       } else {
         r.enrolPay = r.value * F.upfront * wr;
         r.balance = m >= 6 ? rows[m - 6].value * (1 - F.upfront) * wr : 0;
         r.instal = 0;
       }
       const setupM = E.monthly.setupMonths;
-      r.addons = yi === 0 ? (m >= setupM ? (yr.bAddon + yr.bExpComp - yr.addonDelivery) / (12 - setupM) : 0) : (yr.bAddon + yr.bExpComp - yr.addonDelivery) / 12;
+      const months = yi === 0 ? (m >= setupM ? 12 - setupM : 0) : 12;
+      // add-on and companion cash: this year's bookings less the cost of delivering them (fix), or v5's
+      // bookings less the recognised cost
+      const addonCost = fix ? yr.bAddon * (1 - E.addons.margin) + yr.expCompanions * E.addons.expCompanionCost * yr.costIdx : yr.addonDelivery;
+      r.addonsGross = months ? (yr.bAddon + yr.bExpComp) / months : 0;
+      r.addons = months ? (yr.bAddon + yr.bExpComp - addonCost) / months : 0;
       r.cashIn = r.enrolPay + r.balance + r.instal + r.addons;
       const pc = yr.costIdx * S.partnerCost * wr;
       r.firstVisit = r.started * yr.firstAvg * pc;
@@ -401,13 +442,14 @@
       // month 1 also pays for clients who start within the lead time (their marketing would fall before month 1)
       r.leadSpend = (m === 0 ? newM.slice(0, L + 1).reduce((a, x) => a + x, 0) * Y[0].acquisition / Math.max(Y[0].newClients, 0.0001) : newM[m + L] * perLead);
       r.acq = r.leadSpend + r.newC * yr.referral / Math.max(yr.newClients, 0.0001);
-      r.processing = r.cashIn * E.addons.processing;
+      r.processing = (fix ? r.enrolPay + r.balance + r.instal + r.addonsGross : r.cashIn) * E.addons.processing;
       r.salaries = (yr.careTeam + yr.advisors + yr.leadership) / 12;
       r.overheads = (yr.brand + yr.office + yr.legal + yr.insurance + yr.accounting + yr.platformFee + yr.travel + yr.contingency) / 12;
       r.setup = m < setupM ? Y[0].setup / setupM : (m === 12 ? Y[1].setup : (m === 24 ? Y[2].setup : 0));
       r.cashOut = r.firstVisit + r.restYear + r.acq + r.processing + r.salaries + r.overheads + r.setup;
       // marketing support: a share of the month's eligible spend comes back twelve months later
-      r.mktSpend = r.leadSpend + yr.brand / 12;
+      r.mktSpend = r.leadSpend + yr.brand / 12
+        + (fix && m < setupM && !((E.inKind || {}).items || []).includes("setup.brand") ? E.setup.brand / setupM : 0);
       const sl = supportLag(E.support);
       r.support = m >= sl ? ((E.support && E.support.marketingShare) || 0) * rows[m - sl].mktSpend : 0;
       r.cashIn += r.support;
@@ -418,7 +460,7 @@
       let ew = 0; for (let k = Math.max(0, m - 11); k < m; k++) ew += rows[k].progStarted;
       ew += r.progStarted;
       r.earned = ew / 12;
-      cumPaid += r.enrolPay + r.balance + r.instal; cumEarned += r.earned;
+      cumPaid += r.enrolPay + r.balance + r.instal - (fix ? r.forfeitPaid || 0 : 0); cumEarned += r.earned;
       r.unearned = Math.max(0, cumPaid - cumEarned);
       r.held = r.unearned * F.reserve[yi];
       r.cumAfter = r.cum - r.held;
@@ -547,7 +589,7 @@
     return res;
   }
 
-  const api = { atYear, compute, growthOptions, scenarios, applyCase, carried, noGrowthPlan, resolve, getPath, setPath, clone, SCEN, YEARS, MONTHS };
+  const api = { payProfile, atYear, compute, growthOptions, scenarios, applyCase, carried, noGrowthPlan, resolve, getPath, setPath, clone, SCEN, YEARS, MONTHS };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.APModel = api;
 })(typeof window !== "undefined" ? window : globalThis);

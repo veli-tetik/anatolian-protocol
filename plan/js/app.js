@@ -5,7 +5,7 @@
   const $ = (s, r = document) => r.querySelector(s);
   const YRS = ["Y1", "Y2", "Y3", "Y4", "Y5"];
   const SC = { base: "Base", downside: "Downside", upside: "Upside" };
-  const LS_DRAFT = "ap.plan.draft.v6", LS_VERSIONS = "ap.plan.versions";
+  const LS_DRAFT = "ap.plan.draft.diff", LS_VERSIONS = "ap.plan.versions";
 
   // ---------------------------------------------------------------- formatting
   const r0 = (v) => Math.round(v);
@@ -40,7 +40,7 @@
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
   // ---------------------------------------------------------------- state
-  const S = { issues: [], ref: null, v6: null, scenDefs: { groups: [] }, holds: { conversion: "plan", referral: "plan" }, scenCache: null, A: null, name: "v6 lean plan", levers: [], pick: null, scen: "base", metric: "funding", changedOnly: false, R: null, refR: null };
+  const S = { issues: [], ref: null, v6: null, scenDefs: { groups: [] }, holds: { conversion: "plan", referral: "plan" }, scenCache: null, A: null, name: "v6.3 plan", levers: [], pick: null, scen: "base", metric: "funding", changedOnly: false, R: null, refR: null };
 
   function flatten(A) {
     const out = {};
@@ -66,7 +66,7 @@
   const LABELS = (() => {
     const m = {};
     for (const s of SCHEMA) for (const f of s.fields) m[f.path] = f.label;
-    m["partners.operator"] = "Partner switch: operator + hospital";
+    m["partners.operator"] = "Partner switch: partner rates (Plus International)";
     m["partners.physicians"] = "Partner switch: physician network";
     m["partners.revenueShare"] = "Partner revenue share";
     m["monthly.y1Cohorts"] = "Pilot cohorts by month (year 1)";
@@ -102,7 +102,8 @@
   function recompute() {
     S.R = M.compute(S.A);
     S.issues = window.APChecks.check(S.A, S.R, SCHEMA);
-    try { localStorage.setItem(LS_DRAFT, JSON.stringify({ name: S.name, A: S.A })); } catch (e) { /* storage unavailable */ }
+    // the draft keeps only the inputs that differ from the reference plan, so a newer plan file shows through
+    try { localStorage.setItem(LS_DRAFT, JSON.stringify({ name: S.name, d: diff(S.A, S.ref).map(([k, v]) => [k, v]) })); } catch (e) { /* storage unavailable */ }
     renderFoot();
   }
   // business scenarios, computed in full; cached until the plan or a hold choice changes
@@ -121,23 +122,29 @@
     return B;
   }
 
-  // share link: only the inputs that differ from v5
+  // share link: only the inputs that differ from the reference plan (v6.3)
   function shareURL() {
     const d = diff(S.A, S.ref).map(([k, v]) => [k, v]);
     const payload = btoa(unescape(encodeURIComponent(JSON.stringify({ n: S.name, d })))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
     return location.href.split("#")[0] + "#/overview?plan=" + payload;
+  }
+  // the reference plan with a list of [path, value] changes applied
+  function withChanges(d) {
+    const A = M.clone(S.ref);
+    for (const [k, v] of d || []) {
+      const t = k.match(/^team\.(\w+)\.(\w+)$/);
+      if (t) { const row = A.team.find((x) => x.id === t[1]); if (row) row[t[2]] = v; }
+      else if (k === "inKind.team" || k === "inKind.items") { A.inKind = A.inKind || {}; A.inKind[k.split(".")[1]] = v; }
+      else M.setPath(A, k, v);
+    }
+    return A;
   }
   function readShare() {
     const m = location.hash.match(/[?&]plan=([^&]+)/);
     if (!m) return false;
     try {
       const s = JSON.parse(decodeURIComponent(escape(atob(m[1].replace(/-/g, "+").replace(/_/g, "/")))));
-      const A = M.clone(S.ref);
-      for (const [k, v] of s.d) {
-        const t = k.match(/^team\.(\w+)\.(\w+)$/);
-        if (t) A.team.find((x) => x.id === t[1])[t[2]] = v; else M.setPath(A, k, v);
-      }
-      S.A = A; S.name = (s.n || "Shared plan") + " (shared link)";
+      S.A = withChanges(s.d); S.name = (s.n || "Shared plan") + " (shared link)";
       history.replaceState(null, "", location.hash.replace(/[?&]plan=[^&]+/, ""));
       return true;
     } catch (e) { return false; }
@@ -155,7 +162,7 @@
 
   // ---------------------------------------------------------------- shell
   const PAGES = [
-    { group: "Plan", items: [["overview", "Overview"], ["funding", "Funding"], ["rounds", "Rounds"], ["scenarios", "Scenarios"], ["sensitivity", "Sensitivity"]] },
+    { group: "Plan", items: [["overview", "Overview"], ["rounds", "Funding rounds"], ["funding", "Cash levers"], ["scenarios", "Scenarios"], ["sensitivity", "Sensitivity"]] },
     { group: "Model", items: [["assumptions", "Assumptions"], ["unit", "Unit economics"], ["pnl", "P&L"], ["cash", "Monthly cash"], ["partners", "Partners"], ["checks", "Checks"]] },
     { group: "Work", items: [["versions", "Versions"]] },
   ];
@@ -169,12 +176,21 @@
   function renderFoot() {
     const n = diff(S.A, S.ref).length;
     $("#foot").innerHTML = `<div class="row"><span>Version</span><b>${esc(S.name)}</b></div>
-      <div class="row"><span>Changed from v5</span><b>${n} input${n === 1 ? "" : "s"}</b></div>
+      <div class="row"><span>Changed from v6.3</span><b>${n} input${n === 1 ? "" : "s"}</b></div>
       <div class="row"><span>Checks</span><b class="${errCount() ? "delta-bad" : ""}">${checksTxt()}</b></div>
-      <div class="row"><span>Funding to raise</span><b>${kusd(S.R.funding)}</b></div>
+      <div class="row"><span>Rounds</span><b>${kusd(S.R.rounds.pre)} + ${kusd(S.R.rounds.seed)}</b></div>
+      <div class="row"><span>Rounds carry the plan</span><b class="${roundsStatus().ok ? "" : "delta-bad"}">${roundsStatus().ok ? "Yes" : "No"}</b></div>
       <div>Draft kept in this browser.</div>`;
   }
   const errCount = () => S.issues.filter((i) => i.level === "error").length;
+  // what the two rounds do for the plan: carried with the buffer, carried without it, or short
+  function roundsStatus(R = S.R) {
+    const Rd = R.rounds;
+    if (Rd.preLasts < Rd.seedMonth) return { ok: false, text: `Pre-seed runs out in month ${Rd.preLasts + 1}, before the seed in month ${Rd.seedMonth}` };
+    if (R.funding > Rd.total + 0.5) return { ok: false, text: `Both rounds ${kusd(R.funding - Rd.total)} short of the cash need` };
+    if (Rd.preNeeded > Rd.pre + 0.5) return { ok: true, text: `Covered, but the pre-seed reaches month ${Rd.seedMonth} without the ${pct(S.A.finance.buffer)} buffer` };
+    return { ok: true, text: `Covered with the ${pct(S.A.finance.buffer)} buffer; the pre-seed lasts to month ${Rd.preLasts >= 36 ? "36+" : Rd.preLasts}` };
+  }
   function checksTxt() {
     const e = errCount(), w = S.issues.length - e;
     if (!e && !w) return "All passed";
@@ -192,9 +208,9 @@
   const tile = (k, v, d = "", cls = "") => `<div class="ui-tile ${cls}"><div class="k">${k}</div><div class="v">${v}</div><div class="d">${d}</div></div>`;
   const deltaTxt = (now, was, lowerIsGood = false) => {
     const d = now - was;
-    if (Math.abs(d) < 0.5) return "Same as v5";
+    if (Math.abs(d) < 0.5) return "Same as v6.3";
     const good = lowerIsGood ? d < 0 : d > 0;
-    return `<span class="${good ? "delta-good" : "delta-bad"}">${d > 0 ? "+" : "−"}${kusd(Math.abs(d))}</span> against v5`;
+    return `<span class="${good ? "delta-good" : "delta-bad"}">${d > 0 ? "+" : "−"}${kusd(Math.abs(d))}</span> against v6.3`;
   };
   function table(head, rows) {
     return `<div class="ui-table-wrap"><table class="ui-table"><thead><tr>${head.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.map((r) => {
@@ -208,9 +224,10 @@
 
   P.overview = () => {
     const R = S.R, B = R.scen.base, RF = S.refR, y5 = B.years[4];
-    const html = header("Overview", `Base case · ${esc(S.name)} · USD, excl. VAT`, `<button class="ui-btn" data-go="funding">Lower the funding</button>`)
+    const html = header("Overview", `Base case · ${esc(S.name)} · USD, excl. VAT`, `<button class="ui-btn" data-go="funding">Lower the cash need</button>`)
       + checksBanner() + `<div class="ui-tiles">
-        ${tile("Funding to raise", kusd(R.funding), deltaTxt(R.funding, RF.funding, true), "focus")}
+        ${tile("Pre-seed + seed", `${kusd(R.rounds.pre)} + ${kusd(R.rounds.seed)}`, `<span class="${roundsStatus().ok ? "" : "delta-bad"}">${roundsStatus().text}</span>`, "focus")}
+        ${tile("Cash need (low point + buffer)", kusd(R.funding), deltaTxt(R.funding, RF.funding, true))}
         ${tile("Lowest cash point", "Month " + R.monthly.lowAfterMonth, "After the prepayment reserve")}
         ${tile("First year with positive EBITDA", yearOf(B.firstEbitda), "Net cash positive: " + yearOf(B.firstCash))}
         ${tile("Year-5 revenue", kusd(y5.revenue), deltaTxt(y5.revenue, RF.scen.base.years[4].revenue))}
@@ -256,7 +273,7 @@
   function scenarioSummary() {
     const G = scen(), base = S.R;
     if (!G.length) return `<div class="ui-empty">No business scenarios defined (data/scenarios.json).</div>`;
-    return table(["Group", "Funding: lowest", "Funding: highest", "Hardest case", "Year-5 EBITDA range", "Cases carried by the rounds"], G.map((g) => {
+    return table(["Group", "Cash need: lowest", "Cash need: highest", "Hardest case", "Year-5 EBITDA range", "Cases carried by the rounds"], G.map((g) => {
       const f = g.cases.map((c) => c.funding), e = g.cases.map((c) => c.years[4].ebitda), w = worst(g);
       return { cells: [esc(g.title) + (g.hold ? `<br><small style="color:var(--ui-muted)">${g.hold === "plan" ? "same client plan" : "same marketing budget"}</small>` : ""), kusd(Math.min(...f)), kusd(Math.max(...f)), esc(w.label), `${kusd(Math.min(...e))} – ${kusd(Math.max(...e))}`, `${g.cases.filter((c) => c.carried).length} of ${g.cases.length}`] };
     }).concat([{ cells: ["Plan", kusd(base.funding), kusd(base.funding), "–", kusd(base.scen.base.years[4].ebitda), "–"], cls: "minor" }]));
@@ -271,7 +288,7 @@
     const short = Rd.surplus < -0.5;
     const html = header("Funding rounds", `Pre-seed to month ${X}, then a ${kusd(Rd.seed)} seed · base case · USD`)
       + checksBanner()
-      + `<section class="ui-panel"><h2>Rounds</h2><div class="sub">Set a pre-seed amount, or leave it at 0 to size it to the lowest cash point up to the seed month plus the ${buf} buffer. The seed covers the rest of the plan's funding need; anything above that is surplus.</div><div class="body">
+      + `<section class="ui-panel"><h2>Rounds</h2><div class="sub">Set a pre-seed amount, or leave it at 0 to size it to the lowest cash point up to the seed month plus the ${buf} buffer. The seed covers the rest of the plan's cash need; anything above that is surplus.</div><div class="body">
         <div class="ui-field"><div class="lbl">Seed closes at the end of month</div><div class="inputs">${inputHTML("rounds.seedMonth", "int", "narrow")}</div></div>
         <div class="ui-field"><div class="lbl">Pre-seed amount<small>0 = sized automatically</small></div><div class="inputs">${inputHTML("rounds.preSeedAmount", "usd")}</div></div>
         <div class="ui-field"><div class="lbl">Seed amount</div><div class="inputs">${inputHTML("rounds.seedAmount", "usd")}</div></div>
@@ -281,17 +298,17 @@
         ${tile("Pre-seed lasts", Rd.preLasts >= 36 ? "36+ months" : "To month " + Rd.preLasts, Rd.cushion >= 0 ? `${kusd(Rd.cushion)} left at the low point before the seed` : `${kusd(-Rd.cushion)} short before the seed`)}
         ${tile("Seed the plan needs", kusd(Rd.seedNeeded), `Of a ${kusd(Rd.seed)} seed`)}
         ${tile(short ? "Seed shortfall" : "Seed surplus", kusd(Math.abs(Rd.surplus)), short ? "Raise more or close later" : "Free for growth and risk")}
-        ${tile("Raised in both rounds", kusd(Rd.total), `Single round: ${kusd(Rd.single)}`)}
+        ${tile("Raised in both rounds", kusd(Rd.total), `Cash need ${kusd(S.R.funding)} (low point + buffer)`)}
         ${tile("Lowest cash after both rounds", kusd(Rd.low), "Month " + Rd.lowMonth)}
       </div>
-      <section class="ui-panel"><h2>Cash after the rounds</h2><div class="sub">First 36 months, after the prepayment reserve. Single round: the whole ${kusd(Rd.single)} on day one.</div><div class="body"><div id="ch-rounds"></div></div></section>
+      <section class="ui-panel"><h2>Cash after the rounds</h2><div class="sub">First 36 months, after the prepayment reserve: the pre-seed on day one, the seed at the end of month ${X}. ${esc(roundsStatus().text)}.</div><div class="body"><div id="ch-rounds"></div></div></section>
       ${growthPanel(GO)}
-      <section class="ui-panel"><h2>Risks the two rounds carry</h2><div class="sub">The hardest case of each business scenario group (Scenarios page) against the ${kusd(Rd.total)} raised. Carried means both rounds cover its funding need and the ${kusd(Rd.pre)} pre-seed still reaches month ${X}.</div><div class="body">${table(["Case", "Funding needed", "Raised", "Carried"], risks.map((x) => ({
+      <section class="ui-panel"><h2>Risks the two rounds carry</h2><div class="sub">The hardest case of each business scenario group (Scenarios page) against the ${kusd(Rd.total)} raised. Carried means both rounds cover its funding need and the ${kusd(Rd.pre)} pre-seed still reaches month ${X}.</div><div class="body">${table(["Case", "Cash need", "Raised", "Carried"], risks.map((x) => ({
         cells: [esc(x.label), kusd(x.funding), kusd(Rd.total), x.carried ? "Yes" : x.funding > Rd.total ? `No, ${kusd(x.funding - Rd.total)} short` : "No: the pre-seed runs out before the seed"],
       })))}</div></section>`;
     return [html, () => {
       const months = mo.rows.map((r) => "M" + r.m);
-      const series = [{ name: "Pre-seed + seed", c: 1, values: Rd.cash }, { name: "Single round", c: 2, values: mo.rows.map((r) => r.cumAfter + Rd.single), dash: true }];
+      const series = [{ name: "Pre-seed + seed", c: 1, values: Rd.cash }, { name: "Before funding", c: 2, values: mo.rows.map((r) => r.cumAfter), dash: true }];
       if (GO.growth && GO.growth.g > 1) series.push({ name: `Growth ×${GO.growth.g}`, c: 3, values: GO.growth.cash });
       C.lines($("#ch-rounds"), { labels: months, series, fmt: axis, every: 6, mark: { i: X - 1, v: Rd.cash[X - 1], label: "Seed · M" + X } });
       bindInputs();
@@ -334,7 +351,7 @@
     }
     const final = M.compute(A);
     const already = (lv) => lv.changes.every((c) => JSON.stringify(M.getPath(S.A, c.path)) === JSON.stringify(c.value) || (c.path.endsWith("*") && M.getPath(S.A, c.path) === c.value));
-    const html = header("Funding", "Funding to raise = lowest cumulative cash after the prepayment reserve, plus the " + pct(S.A.finance.buffer) + " buffer · base case",
+    const html = header("Cash levers", "Cash need = lowest cumulative cash after the prepayment reserve, plus the " + pct(S.A.finance.buffer) + " buffer · base case",
       `<button class="ui-btn ghost" id="pick-none">Clear</button><button class="ui-btn ghost" id="pick-all">Select all</button><button class="ui-btn primary" id="apply">Apply to plan</button>`)
       + `<div class="ui-tiles">
         ${tile("Current plan", kusd(base.funding), "Low point in month " + base.monthly.lowAfterMonth)}
@@ -352,7 +369,7 @@
         </div><div class="ui-note">Not used as levers: the prepayment reserve (${S.A.finance.reserve.map((r) => pct(r)).join(" → ")}) and the funding buffer stay as they are, so the figure stays prudent. Edit or add levers in <code>data/levers.json</code>.</div></section>
         <section class="ui-panel"><h2>Cash, month by month</h2><div class="sub">Cumulative cash after the reserve: current plan against the selected levers</div><div class="body"><div id="ch-cash2"></div></div>
           <div class="body" style="padding-top:0">${table(["", "Current", "With levers"], [
-            { cells: ["Funding to raise", kusd(base.funding), kusd(final.funding)], cls: "key" },
+            { cells: ["Cash need", kusd(base.funding), kusd(final.funding)], cls: "key" },
             { cells: ["EBITDA, Y1", kusd(base.scen.base.years[0].ebitda), kusd(final.scen.base.years[0].ebitda)] },
             { cells: ["EBITDA, Y2", kusd(base.scen.base.years[1].ebitda), kusd(final.scen.base.years[1].ebitda)] },
             { cells: ["Team in year 1 (FTE)", num(base.scen.base.years[0].fteTotal), num(final.scen.base.years[0].fteTotal)] },
@@ -383,7 +400,7 @@
       const hold = g.holdable ? `<div class="ui-seg" role="group" aria-label="Hold">${[["plan", "Same client plan"], ["budget", "Same marketing budget"]].map(([h, t]) => `<button data-hold="${g.id}:${h}" aria-pressed="${g.hold === h}">${t}</button>`).join("")}</div>` : "";
       const holdNote = !g.holdable ? "" : g.hold === "plan" ? " Same client plan: leads are re-solved so the new-client plan stays as set; lead spend moves." : " Same marketing budget: leads as set; the number of clients moves.";
       return `<section class="ui-panel"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><h2>${esc(g.title)}</h2>${hold}</div><div class="sub">${esc(g.note || "")}${holdNote}</div><div class="body">${table(["", ...C2.map((c) => (c.plan ? "<b>" + esc(c.label) + "</b>" : esc(c.label)))], [
-        row("Funding to raise (one round)", (c) => kusd(c.funding), "key"),
+        row("Cash need (low point + buffer)", (c) => kusd(c.funding), "key"),
         row("Pre-seed needed / seed needed", (c) => `${kusd(c.preNeeded)} / ${kusd(Math.max(0, c.funding - c.preNeeded))}`),
         row(`Carried by the planned rounds (${kusd(Rd.pre)} + ${kusd(Rd.seed)})`, (c) => (c.carried ? "Yes" : c.funding > Rd.total + 0.5 ? `No, ${kusd(c.funding - Rd.total)} short` : `Pre-seed ${kusd(c.preNeeded - Rd.pre)} short`)),
         row("Lowest cash month", (c) => "M" + c.lowMonth, "minor"),
@@ -397,7 +414,7 @@
       ])}</div></section>`;
     };
     const html = header("Scenarios", "Business cases, one group at a time; every other input is the plan · computed in full, monthly cash included")
-      + (G.length ? `<section class="ui-panel"><h2>Funding to raise by case</h2><div class="sub">Plan: ${kusd(S.R.funding)}. Lowest and highest case in each group.</div><div class="body">${scenarioSummary()}</div></section>` + G.map(groupHTML).join("")
+      + (G.length ? `<section class="ui-panel"><h2>Cash need by case</h2><div class="sub">Plan: ${kusd(S.R.funding)}. Lowest and highest case in each group.</div><div class="body">${scenarioSummary()}</div></section>` + G.map(groupHTML).join("")
         : `<div class="ui-empty">No business scenarios defined. Add them to <code>data/scenarios.json</code>.</div>`)
       + `<div class="ui-note">Cases are defined in <code>data/scenarios.json</code>: each is a set of input changes on the plan. Benchmarks come from a comparable health-tourism business.</div>`;
     return [html, () => {
@@ -430,8 +447,8 @@
       return { name, low: a, high: b, lowLabel: `${name} ×${lo}`, highLabel: `${name} ×${hi}`, span: Math.abs(b - a) };
     }).sort((x, y) => y.span - x.span);
     const html = header("Sensitivity", "One input at a time, the rest of the current plan held · base case",
-      `<div class="ui-seg" role="group" aria-label="Metric"><button data-metric="funding" aria-pressed="${metric === "funding"}">Funding to raise</button><button data-metric="np" aria-pressed="${metric === "np"}">Five-year net profit</button></div>`)
-      + `<section class="ui-panel"><h2>${metric === "funding" ? "Funding to raise" : "Five-year net profit"}: ${kusd(centre)} now</h2><div class="sub">Bars show the result with the input lower (green) and higher (orange). Largest swing first.</div><div class="body"><div id="ch-t"></div></div></section>
+      `<div class="ui-seg" role="group" aria-label="Metric"><button data-metric="funding" aria-pressed="${metric === "funding"}">Cash need</button><button data-metric="np" aria-pressed="${metric === "np"}">Five-year net profit</button></div>`)
+      + `<section class="ui-panel"><h2>${metric === "funding" ? "Cash need" : "Five-year net profit"}: ${kusd(centre)} now</h2><div class="sub">Bars show the result with the input lower (green) and higher (orange). Largest swing first.</div><div class="body"><div id="ch-t"></div></div></section>
       <section class="ui-panel"><h2>Table view</h2><div class="body">${table(["Input", "Lower", "Result", "Higher", "Result", "Swing"], rows.map((r) => ({ cells: [r.name, r.lowLabel.split("×")[1] ? "×" + r.lowLabel.split("×")[1] : "", kusd(r.low), "×" + r.highLabel.split("×")[1], kusd(r.high), kusd(r.span)] })))}</div></section>`;
     return [html, () => {
       C.tornado($("#ch-t"), { rows, centre, fmt: axis, lowName: "Input lower", highName: "Input higher" });
@@ -444,14 +461,16 @@
     const v = M.getPath(S.A, path), r = M.getPath(S.ref, path);
     const changed = JSON.stringify(v) !== JSON.stringify(r);
     const bad = S.issues.some((i) => i.level === "error" && i.path === path);
-    const title = changed && r !== undefined ? `v5: ${fmtInput(r, kind)}` : "";
+    const title = changed && r !== undefined ? `v6.3: ${fmtInput(r, kind)}` : "";
     return `<input class="ui-input ${cls}${changed ? " changed" : ""}${bad ? " invalid" : ""}" type="text" inputmode="decimal" autocomplete="off" id="in-${path.replace(/\./g, "-")}" data-path="${path}" data-kind="${kind}" value="${fmtInput(v, kind)}" title="${title}"${bad ? ' aria-invalid="true"' : ""} aria-label="${esc(labelOf(path.replace(/\.\d+$/, "")))}">`;
   }
   function fieldHTML(f) {
     const v = M.getPath(S.A, f.path);
+    if (v === undefined || v === null) return "";
     let inputs;
     if (f.shape === "pair") inputs = ["Standard", "Premium"].map((c, i) => `<label class="ui-input-cap"><span>${c}</span>${inputHTML(f.path + "." + i, f.kind)}</label>`).join("");
     else if (f.shape === "years") inputs = YRS.map((c, i) => `<label class="ui-input-cap"><span>${c}</span>${inputHTML(f.path + "." + i, f.kind, "narrow")}</label>`).join("");
+    else if (f.shape === "visits") inputs = v.map((_, i) => `<label class="ui-input-cap"><span>Visit ${i + 1}</span>${inputHTML(f.path + "." + i, f.kind, "narrow")}</label>`).join("");
     else if (Array.isArray(v)) inputs = v.map((_, i) => `<label class="ui-input-cap"><span>${["Annual", "Summer–Winter", "Seasonal"][i] || i + 1}</span>${inputHTML(f.path + "." + i, f.kind, "narrow")}</label>`).join("");
     else if (f.kind === "bool") inputs = `<label class="ui-switch"><input type="checkbox" data-bool="${f.path}"${v !== false ? " checked" : ""}> ${v !== false ? "On" : "Off"}</label>`;
     else inputs = inputHTML(f.path, f.kind);
@@ -459,7 +478,7 @@
     const unit = { usd: "USD" }[f.kind];
     const msgs = issuesFor(f.path);
     return `<div class="ui-field" data-field="${f.path}"><div class="lbl">${esc(f.label)}${unit ? ` <small style="display:inline">· ${unit}</small>` : ""}${f.note ? `<small>${esc(f.note)}</small>` : ""}${f.partner && (S.A.partners.operator || S.A.partners.physicians) ? "<small>A partner switch may override this value.</small>" : ""}
-      <button class="ui-reset" data-reset="${f.path}"${changed ? "" : " hidden"}>Reset to v5</button>${msgs.map((m) => `<small class="ui-msg ${m.level}">${esc(m.msg)}</small>`).join("")}</div><div class="inputs">${inputs}</div></div>`;
+      <button class="ui-reset" data-reset="${f.path}"${changed ? "" : " hidden"}>Reset to v6.3</button>${msgs.map((m) => `<small class="ui-msg ${m.level}">${esc(m.msg)}</small>`).join("")}</div><div class="inputs">${inputs}</div></div>`;
   }
   function bindInputs() {
     document.querySelectorAll("input[data-path]").forEach((inp) => inp.addEventListener("change", () => {
@@ -477,7 +496,7 @@
   }
   function liveStrip() {
     const R = S.R, B = R.scen.base;
-    return `<div class="ui-tiles">${tile("Funding to raise", kusd(R.funding), deltaTxt(R.funding, S.refR.funding, true), "focus")}${tile("First year with positive EBITDA", yearOf(B.firstEbitda))}${tile("Year-5 EBITDA", kusd(B.years[4].ebitda), pct(B.years[4].ebitdaMargin) + " margin")}${tile("Five-year net profit", kusd(B.netProfit5), deltaTxt(B.netProfit5, S.refR.scen.base.netProfit5))}</div>`;
+    return `<div class="ui-tiles">${tile("Cash need", kusd(R.funding), deltaTxt(R.funding, S.refR.funding, true), "focus")}${tile("First year with positive EBITDA", yearOf(B.firstEbitda))}${tile("Year-5 EBITDA", kusd(B.years[4].ebitda), pct(B.years[4].ebitdaMargin) + " margin")}${tile("Five-year net profit", kusd(B.netProfit5), deltaTxt(B.netProfit5, S.refR.scen.base.netProfit5))}</div>`;
   }
 
   P.assumptions = () => {
@@ -489,16 +508,16 @@
       return `<section class="ui-panel"><h2>${s.title}</h2><div class="body">${fields.map(fieldHTML).join("")}</div></section>`;
     }).join("");
     const teamRows = S.A.team.filter((t) => !S.changedOnly || isCh("team." + t.id)).map((t) => ({ cells: [esc(t.name) + `<br><small style="color:var(--ui-muted)">${{ fixed: "Fixed", new: "per new clients", active: "per active clients", visits: "per visits" }[t.driver]}</small>`, inputHTML(`team.${t.id}.cost`, "usd", "narrow"), t.driver === "fixed" ? "–" : inputHTML(`team.${t.id}.ratio`, "num", "narrow"), inputHTML(`team.${t.id}.min`, "int", "narrow"), inputHTML(`team.${t.id}.y1`, "pct", "narrow")] }));
-    const html = header("Assumptions", `${changed.size} input${changed.size === 1 ? "" : "s"} changed from v5 · highlighted · results update when you leave a field`,
-      `<label class="ui-btn ghost" style="display:inline-flex;align-items:center;gap:6px"><input type="checkbox" id="only"${S.changedOnly ? " checked" : ""}> Changed only</label><button class="ui-btn" id="reset-all">Reset all to v5</button>`)
+    const html = header("Assumptions", `${changed.size} input${changed.size === 1 ? "" : "s"} changed from v6.3 · highlighted · results update when you leave a field`,
+      `<label class="ui-btn ghost" style="display:inline-flex;align-items:center;gap:6px"><input type="checkbox" id="only"${S.changedOnly ? " checked" : ""}> Changed only</label><button class="ui-btn" id="reset-all">Reset all to v6.3</button>`)
       + checksBanner() + liveStrip()
       + `<div class="ui-cols">${secs}</div>`
       + (teamRows.length ? `<section class="ui-panel" style="margin-top:16px"><h2>F · Team</h2><div class="sub">Monthly cost to company. Headcount = max(minimum, clients ÷ ratio). The pilot-year factor is the share of year 1 on payroll.</div><div class="body">${table(["Role", "Monthly cost", "Clients per FTE", "Minimum FTE", "Pilot-year factor"], teamRows)}</div></section>` : "")
-      + (S.changedOnly && !changed.size ? `<div class="ui-empty">No inputs differ from v5. Clear "Changed only" to see every input.</div>` : "");
+      + (S.changedOnly && !changed.size ? `<div class="ui-empty">No inputs differ from v6.3. Clear "Changed only" to see every input.</div>` : "");
     return [html, () => {
       bindInputs();
       $("#only").onchange = (e) => { S.changedOnly = e.target.checked; render(); };
-      $("#reset-all").onclick = () => { setA(S.ref, "v5 baseline"); render(); toast("All inputs reset to v5."); };
+      $("#reset-all").onclick = () => { setA(S.ref, "v6.3 plan"); render(); toast("All inputs reset to v6.3."); };
     }];
   };
 
@@ -579,7 +598,7 @@
     const p = S.R.scen.base;
     const html = header("P&L", "Plan · five years · USD · business scenarios on the Scenarios page",
       `<button class="ui-btn" id="csv">Export CSV</button>`)
-      + `<div class="ui-tiles">${tile("Funding to raise", kusd(p.raise), "Monthly cash view")}${tile("First year with positive EBITDA", yearOf(p.firstEbitda))}${tile("Five-year net profit", kusd(p.netProfit5))}${tile("Cash at end of year 5", kusd(p.cashEnd), "After funding")}</div>`
+      + `<div class="ui-tiles">${tile("Cash need", kusd(p.raise), "Monthly cash view")}${tile("First year with positive EBITDA", yearOf(p.firstEbitda))}${tile("Five-year net profit", kusd(p.netProfit5))}${tile("Cash at end of year 5", kusd(p.cashEnd), "After funding")}</div>`
       + `<section class="ui-panel"><div class="body">${table(["Line", ...YRS], pnlRows(p))}</div></section>`;
     return [html, () => {
       $("#csv").onclick = () => {
@@ -617,12 +636,12 @@
   P.partners = () => {
     const Pn = S.A.partners;
     const variant = (op, ph) => { const A = M.clone(S.A); A.partners.operator = op; A.partners.physicians = ph; return M.compute(A); };
-    const V = [["Alone", variant(0, 0)], ["+ Operator + hospital", variant(1, 0)], ["+ Physician network", variant(0, 1)], ["Both groups", variant(1, 1)]];
+    const V = [["Plan (in-kind support only)", variant(0, 0)], ["+ Partner rates", variant(1, 0)], ["+ Physician network", variant(0, 1)], ["Both", variant(1, 1)]];
     const fmtL = (lv, v) => (Math.abs(v) < 1 && v !== 0 ? pct(v) : usd(v));
-    const html = header("Partners", "Two partner groups make the same client plan cheaper to reach · paid in shares unless a revenue share is set")
+    const html = header("Partners", "Plus International's in-kind support is part of the plan; two switches add partner rates and a physician network · paid in shares unless a revenue share is set")
       + `<section class="ui-panel"><h2>Switches</h2><div class="body">
-        <label class="ui-check"><input type="checkbox" data-sw="operator"${Pn.operator ? " checked" : ""}><span class="t">Health-tourism operator + university hospital</span><span></span><span class="x">International Plus with Atlas University Hospital: sales team, back office, authorisation, Florida entity, hotel contracts; measurement day, physicians and clinical governance at partner rates.</span></label>
-        <label class="ui-check"><input type="checkbox" data-sw="physicians"${Pn.physicians ? " checked" : ""}><span class="t">Physician network in the US and target countries</span><span></span><span class="x">US Camp: referring physicians and a scientific board; local licensed follow-up; credibility that lifts lead conversion.</span></label>
+        <label class="ui-check"><input type="checkbox" data-sw="operator"${Pn.operator ? " checked" : ""}><span class="t">Partner rates from Plus International and its partner hospital</span><span></span><span class="x">Measurement day, programme physicians, clinical lead and governance, hotel volume rates and health-tourism counsel at partner rates. The staff, office and set-up Plus International carries in kind are already in the plan (below); this switch adds only the rates.</span></label>
+        <label class="ui-check"><input type="checkbox" data-sw="physicians"${Pn.physicians ? " checked" : ""}><span class="t">Physician network in the US and target countries</span><span></span><span class="x">Referring physicians in the US and target countries; local licensed follow-up; credibility that lifts lead conversion.</span></label>
         <div class="ui-field"><div class="lbl">Partner revenue share, % of revenue<small>0% = paid in shares only. Applies when either group is in.</small></div><div class="inputs">${inputHTML("partners.revenueShare", "pct", "narrow")}</div></div>
       </div></section>
       <section class="ui-panel"><h2>Carried by ${esc((S.A.inKind && S.A.inKind.by) || "Plus International")} in kind</h2><div class="sub">Ticked staff and infrastructure are provided by the partner: worked out in full on the P&L page as a memo, but not in the P&L, cash or funding. Five-year value now ${kusd(S.R.scen.base.years.reduce((a, y) => a + y.inKind, 0))}.</div><div class="body ui-grid">
@@ -630,17 +649,17 @@
         <div>${Object.entries(IK_ITEMS).map(([k, lab]) => `<label class="ui-check"><input type="checkbox" data-ik="items:${k}"${((S.A.inKind || {}).items || []).includes(k) ? " checked" : ""}><span class="t">${esc(lab)}</span></label>`).join("")}</div>
       </div></section>
       <section class="ui-panel"><h2>Effect of each group</h2><div class="sub">Computed live on the current plan</div><div class="body">${table(["Result (base case)", ...V.map((v) => v[0])], [
-        { cells: ["Funding to raise", ...V.map((v) => kusd(v[1].funding))], cls: "key" },
-        { cells: ["Saved against going alone", ...V.map((v) => kusd(V[0][1].funding - v[1].funding))] },
+        { cells: ["Cash need", ...V.map((v) => kusd(v[1].funding))], cls: "key" },
+        { cells: ["Saved against the plan", ...V.map((v) => kusd(V[0][1].funding - v[1].funding))] },
         { cells: ["Month of the lowest cash point", ...V.map((v) => "M" + v[1].monthly.lowAfterMonth)] },
         { cells: ["EBITDA, Y1", ...V.map((v) => kusd(v[1].scen.base.years[0].ebitda))] },
         { cells: ["First year with positive EBITDA", ...V.map((v) => yearOf(v[1].scen.base.firstEbitda))] },
         { cells: ["EBITDA, Y5", ...V.map((v) => kusd(v[1].scen.base.years[4].ebitda))] },
         { cells: ["Five-year net profit", ...V.map((v) => kusd(v[1].scen.base.netProfit5))] },
       ])}</div></section>
-      <section class="ui-panel"><h2>Levers the partners change</h2><div class="body">${table(["Lever", "Group", "Alone", "With partner", "Used now"], Pn.levers.map((lv) => {
+      <section class="ui-panel"><h2>Levers the partners change</h2><div class="body">${table(["Lever", "Group", "In the plan", "With partner", "Used now"], Pn.levers.map((lv) => {
         const alone = M.getPath(S.A, lv.path), used = M.getPath(S.R.E, lv.path);
-        return { cells: [esc(lv.label) + `<br><small style="color:var(--ui-muted)">${esc(lv.basis)}</small>`, lv.group === "operator" ? "Operator + hospital" : "Physician network", fmtL(lv, alone), fmtL(lv, lv.with), fmtL(lv, used)] };
+        return { cells: [esc(lv.label) + `<br><small style="color:var(--ui-muted)">${esc(lv.basis)}</small>`, lv.group === "operator" ? "Partner rates" : "Physician network", fmtL(lv, alone), fmtL(lv, lv.with), fmtL(lv, used)] };
       }))}</div></section>`;
     return [html, () => {
       document.querySelectorAll("[data-sw]").forEach((cb) => (cb.onchange = () => { S.A.partners[cb.dataset.sw] = cb.checked ? 1 : 0; recompute(); render(true); }));
@@ -685,11 +704,9 @@
   P.versions = () => {
     const vs = versions(), d = diff(S.A, S.ref);
     const presets = [
-      ["v6 lean plan", () => S.v6, "2% conversion at $75 a lead (benchmark; stress $150), 30 → 180 new clients a year, 40% marketing support a year later, staff and infrastructure from Plus International."],
-      ["v5 baseline", () => S.ref, "The Excel model v5, converted 1:1."],
-      ["Partner case (both groups)", () => { const A = M.clone(S.ref); A.partners.operator = 1; A.partners.physicians = 1; return A; }, "v5 with both partner groups switched in."],
-      ["v6 lean plan, lean pilot", () => applyLevers(S.v6, ["upfront", "founding", "atron", "team", "spend", "cohorts"]), "v6 with the payment-term, platform, team and spending levers on the Funding page; no partner switches."],
-      ["Minimum investment (all levers)", () => applyLevers(S.ref, S.levers.map((l) => l.id)), "v5 with every lever on the Funding page applied."],
+      ["v6.3 plan", () => S.v6, "2% of leads become clients at $75 a lead (benchmark; stress $150), 30 → 180 new clients a year, 40% marketing support a year later, staff and infrastructure carried in kind by Plus International, payment per visit (front-loaded), a $200k pre-seed and a $500k seed at month 9."],
+      ["v5 baseline", () => S.v5, "The Excel model v5, converted 1:1."],
+      ["v6.3 plan with every funding lever", () => applyLevers(S.v6, S.levers.map((l) => l.id)), "v6.3 with partner rates, the physician network, payment in full at the first visit, a 5% founding discount and the ATRON fee waived."],
     ];
     const html = header("Versions", "Plans are JSON files: save them here, export them to the repository, share them as a link",
       `<button class="ui-btn" id="share">Copy share link</button><button class="ui-btn" id="export">Export JSON</button><label class="ui-btn" style="display:inline-flex;align-items:center">Import JSON<input type="file" id="import" accept="application/json,.json" hidden></label><button class="ui-btn primary" id="save">Save version</button>`)
@@ -698,12 +715,12 @@
         <section class="ui-panel"><h2>Saved in this browser</h2><div class="body">${vs.length ? vs.map((v, i) => `<div class="ui-list-row"><div>${esc(v.name)}<div class="meta">${fmtDate(v.at)} · funding ${kusd(M.compute(v.A).funding)}</div></div><div class="ui-actions"><button class="ui-btn small" data-load="${i}">Load</button><button class="ui-btn small ghost" data-del="${i}">Delete</button></div></div>`).join("") : `<div class="ui-empty">No saved versions yet. Save version keeps the current plan in this browser.</div>`}</div></section>
         <section class="ui-panel"><h2>How to work with plans</h2><div class="body" style="display:grid;gap:6px">
           <div>1. Change inputs on any page; results update everywhere. The draft stays in this browser.</div>
-          <div>2. Save version to keep a named copy here, or Copy share link to send the plan: the link carries only the inputs that differ from v5.</div>
+          <div>2. Save version to keep a named copy here, or Copy share link to send the plan: the link carries only the inputs that differ from v6.3.</div>
           <div>3. To make a plan official for everyone, Export JSON and commit it to <code>plan/data/</code> in the repository; git keeps the history.</div>
           <div>4. Levers for the Funding page live in <code>plan/data/levers.json</code>.</div>
         </div></section>
       </div>
-      <section class="ui-panel"><h2>Changes from v5</h2><div class="sub">${esc(S.name)} · ${d.length} input${d.length === 1 ? "" : "s"}</div><div class="body">${d.length ? table(["Input", "v5", "Now"], d.map(([k, now, was]) => ({ cells: [esc(labelOf(k)), fmtVal(k, was), fmtVal(k, now)] }))) : `<div class="ui-empty">The current plan is the v5 baseline.</div>`}</div></section></div>`;
+      <section class="ui-panel"><h2>Changes from v6.3</h2><div class="sub">${esc(S.name)} · ${d.length} input${d.length === 1 ? "" : "s"}</div><div class="body">${d.length ? table(["Input", "v5", "Now"], d.map(([k, now, was]) => ({ cells: [esc(labelOf(k)), fmtVal(k, was), fmtVal(k, now)] }))) : `<div class="ui-empty">The current plan is the v6.3 plan.</div>`}</div></section></div>`;
     return [html, () => {
       document.querySelectorAll("[data-preset]").forEach((b) => (b.onclick = () => { const p = presets[+b.dataset.preset]; setA(p[1](), p[0]); render(); toast(p[0] + " loaded."); }));
       document.querySelectorAll("[data-load]").forEach((b) => (b.onclick = () => { const v = versions()[+b.dataset.load]; setA(v.A, v.name); render(); toast(v.name + " loaded."); }));
@@ -751,15 +768,15 @@
   window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => render(true), 150); });
   window.addEventListener("hashchange", () => render());
 
-  Promise.all(["data/v5.json", "data/v6.json", "data/levers.json", "data/scenarios.json"].map((u) => fetch(u).then((r) => r.json())))
+  Promise.all(["data/v5.json", "data/v6.json", "data/levers.json", "data/scenarios.json"].map((u) => fetch(u + "?v=63").then((r) => r.json())))
     .then(([v5, v6, lv, sc]) => {
-      S.ref = v5; S.v6 = v6; S.scenDefs = sc; S.levers = lv.levers; S.refR = M.compute(v5);
+      S.ref = v6; S.v5 = v5; S.v6 = v6; S.scenDefs = sc; S.levers = lv.levers; S.refR = M.compute(v6);
       if (!readShare()) {
         let draft = null;
         try { draft = JSON.parse(localStorage.getItem(LS_DRAFT) || "null"); } catch (e) { draft = null; }
-        if (draft && draft.A) { S.A = draft.A; S.name = draft.name; } else { S.A = M.clone(v6); }
+        if (draft && draft.d) { S.A = withChanges(draft.d); S.name = draft.name; } else { S.A = M.clone(v6); S.name = "v6.3 plan"; }
       }
-      try { recompute(); } catch (e) { S.A = M.clone(v6); S.name = "v6 lean plan"; recompute(); }
+      try { recompute(); } catch (e) { S.A = M.clone(v6); S.name = "v6.3 plan"; recompute(); }
       render();
     })
     .catch(() => {
