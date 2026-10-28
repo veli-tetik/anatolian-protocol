@@ -1,0 +1,514 @@
+{
+  "note": "Business scenarios. Each case is a set of input changes on the loaded plan, computed in full (P&L, monthly cash, funding). A case with no changes is the plan itself. Groups marked holdable can be read two ways on the Scenarios page: the same new-client plan (leads re-solved, so lead spend moves) or the same marketing budget (leads as set, so the client plan moves). Benchmarks: a comparable health-tourism business (CRM and books, Oct 2025 – Jun 2026).",
+  "groups": [
+    {
+      "id": "collection",
+      "title": "Collection",
+      "note": "When clients pay. Benchmark: a €300 deposit (8%), treatment a median 61 days later, the balance on the day.",
+      "cases": [
+        {
+          "id": "plan",
+          "label": "Plan: 70% of the rest at the first visit, 30% over 6 months",
+          "changes": []
+        },
+        {
+          "id": "full",
+          "label": "Paid in full at the first visit",
+          "note": "As the benchmark.",
+          "changes": [
+            {
+              "path": "finance.payment.startShare",
+              "value": 1
+            },
+            {
+              "path": "finance.payment.balanceMonths",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": "half",
+          "label": "50% at the first visit, 50% over 6 months",
+          "changes": [
+            {
+              "path": "finance.payment.startShare",
+              "value": 0.5
+            },
+            {
+              "path": "finance.payment.balanceMonths",
+              "value": 6
+            }
+          ]
+        },
+        {
+          "id": "quarter",
+          "label": "25% at the first visit, the rest over 12 months",
+          "changes": [
+            {
+              "path": "finance.payment.startShare",
+              "value": 0.25
+            },
+            {
+              "path": "finance.payment.balanceMonths",
+              "value": 12
+            }
+          ]
+        },
+        {
+          "id": "late",
+          "label": "First visit 4 months after the deposit",
+          "note": "A longer wait between sale and arrival; marketing paid 5 months ahead.",
+          "changes": [
+            {
+              "path": "finance.payment.saleToStartMonths",
+              "value": 4
+            },
+            {
+              "path": "monthly.marketingLeadMonths",
+              "value": 5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "conversion",
+      "title": "Conversion",
+      "holdable": true,
+      "note": "Lead to deposit, and deposits that never reach the first visit. Benchmark: 3.4% of leads pay a deposit; about a quarter of deposits do not reach treatment.",
+      "cases": [
+        {
+          "id": "low",
+          "label": "Lead to deposit 1.8%",
+          "changes": [
+            {
+              "path": "funnel.conversion",
+              "value": 0.018
+            }
+          ]
+        },
+        {
+          "id": "plan",
+          "label": "Plan: lead to deposit 2.7%, 25% of deposits cancel",
+          "changes": []
+        },
+        {
+          "id": "benchmark",
+          "label": "Lead to deposit 3.4% (benchmark)",
+          "changes": [
+            {
+              "path": "funnel.conversion",
+              "value": 0.034
+            }
+          ]
+        },
+        {
+          "id": "cancel",
+          "label": "40% of deposits cancel before the first visit",
+          "changes": [
+            {
+              "path": "funnel.cancelBeforeVisit",
+              "value": 0.4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "leadCost",
+      "title": "Lead cost",
+      "note": "Cost per lead from paid marketing. Benchmark: €15 for a mass-market treatment; a wealthier audience costs several times more.",
+      "cases": [
+        {
+          "id": "50",
+          "label": "$50 a lead",
+          "changes": [
+            {
+              "path": "funnel.costPerLead",
+              "value": [
+                50,
+                50,
+                50,
+                50,
+                50
+              ]
+            }
+          ]
+        },
+        {
+          "id": "plan",
+          "label": "Plan: $75 a lead",
+          "changes": []
+        },
+        {
+          "id": "110",
+          "label": "$110 a lead",
+          "changes": [
+            {
+              "path": "funnel.costPerLead",
+              "value": [
+                110,
+                110,
+                110,
+                110,
+                110
+              ]
+            }
+          ]
+        },
+        {
+          "id": "150",
+          "label": "$150 a lead",
+          "changes": [
+            {
+              "path": "funnel.costPerLead",
+              "value": [
+                150,
+                150,
+                150,
+                150,
+                150
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "referral",
+      "title": "Referrals and companions",
+      "holdable": true,
+      "note": "New clients who cost no lead: referral partners (12% commission) and companions with their own protocol. The benchmark has almost no partner referrals (5 affiliate referrals, 0.8% of operations through influencers, 2.2% repeat patients); 87% of its trips are for two or more people, but companions buying their own treatment are not recorded.",
+      "cases": [
+        {
+          "id": "flat35",
+          "label": "35% referrals from year 1",
+          "note": "The v6 assumption until 28/10/2026.",
+          "changes": [
+            {
+              "path": "funnel.referralShare",
+              "value": [
+                0.35,
+                0.35,
+                0.35,
+                0.35,
+                0.35
+              ]
+            }
+          ]
+        },
+        {
+          "id": "plan",
+          "label": "Plan: referrals build up 15% → 35%, 15% companions",
+          "changes": []
+        },
+        {
+          "id": "ramp10",
+          "label": "Slower build-up: 10% → 15% → 20% → 25% → 30%",
+          "changes": [
+            {
+              "path": "funnel.referralShare",
+              "value": [
+                0.1,
+                0.15,
+                0.2,
+                0.25,
+                0.3
+              ]
+            }
+          ]
+        },
+        {
+          "id": "none",
+          "label": "No referral partners (as the benchmark)",
+          "changes": [
+            {
+              "path": "funnel.referralShare",
+              "value": [
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "id": "comp5",
+          "label": "Companions 5% instead of 15%",
+          "changes": [
+            {
+              "path": "prices.companionShare",
+              "value": 0.05
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "renewal",
+      "title": "Renewal",
+      "note": "Clients who renew into program year 2; later years follow the retention inputs. Renewals need no lead.",
+      "cases": [
+        {
+          "id": "30",
+          "label": "30% renew",
+          "changes": [
+            {
+              "path": "scenarios.base.renewal",
+              "value": 0.3
+            }
+          ]
+        },
+        {
+          "id": "plan",
+          "label": "Plan: 45% renew",
+          "changes": []
+        },
+        {
+          "id": "60",
+          "label": "60% renew",
+          "changes": [
+            {
+              "path": "scenarios.base.renewal",
+              "value": 0.6
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "launch",
+      "title": "Launch timing",
+      "note": "Set-up before the first clients arrive. Fixed costs run from month 1; year-1 clients stay at 30 but arrive later.",
+      "cases": [
+        {
+          "id": "plan",
+          "label": "Plan: set-up 3 months, cohorts in months 4 and 7",
+          "changes": []
+        },
+        {
+          "id": "plus2",
+          "label": "Set-up 5 months, cohorts in months 6 and 9",
+          "changes": [
+            {
+              "path": "monthly.setupMonths",
+              "value": 5
+            },
+            {
+              "path": "monthly.y1Cohorts",
+              "value": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0.5,
+                0,
+                0,
+                0.5,
+                0,
+                0,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "id": "plus3",
+          "label": "Set-up 6 months, cohorts in months 7 and 10",
+          "changes": [
+            {
+              "path": "monthly.setupMonths",
+              "value": 6
+            },
+            {
+              "path": "monthly.y1Cohorts",
+              "value": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0.5,
+                0,
+                0,
+                0.5,
+                0,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "id": "plus3fewer",
+          "label": "Set-up 6 months and 20 clients in year 1",
+          "note": "Fewer pilot clients as well as later ones.",
+          "changes": [
+            {
+              "path": "monthly.setupMonths",
+              "value": 6
+            },
+            {
+              "path": "monthly.y1Cohorts",
+              "value": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0.5,
+                0,
+                0,
+                0.5,
+                0,
+                0
+              ]
+            },
+            {
+              "path": "funnel.leads.0",
+              "value": 713
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "salesCycle",
+      "title": "Sales cycle",
+      "note": "Months from paying for a lead to the client's first visit. Plan: 3 months (about 1 to the deposit, 2 to the visit). Benchmark: median 15 days to the deposit, 61 days to treatment; a $20k programme is a longer decision.",
+      "cases": [
+        {
+          "id": "plan",
+          "label": "Plan: lead 3 months before the first visit",
+          "changes": []
+        },
+        {
+          "id": "5",
+          "label": "Lead 5 months before (3 months to the deposit)",
+          "changes": [
+            {
+              "path": "monthly.marketingLeadMonths",
+              "value": 5
+            }
+          ]
+        },
+        {
+          "id": "7",
+          "label": "Lead 7 months before (5 months to the deposit)",
+          "changes": [
+            {
+              "path": "monthly.marketingLeadMonths",
+              "value": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "support",
+      "title": "Marketing support",
+      "note": "Ministry of Trade support on client acquisition and brand spend. The benchmark budgets about 40% but received about 14% of its ad spend in 15 months of books.",
+      "cases": [
+        {
+          "id": "plan",
+          "label": "Plan: 40%, a year after the spend",
+          "changes": []
+        },
+        {
+          "id": "18",
+          "label": "40%, 18 months after",
+          "changes": [
+            {
+              "path": "support.lagMonths",
+              "value": 18
+            }
+          ]
+        },
+        {
+          "id": "24",
+          "label": "40%, 24 months after",
+          "changes": [
+            {
+              "path": "support.lagMonths",
+              "value": 24
+            }
+          ]
+        },
+        {
+          "id": "20",
+          "label": "20%, 18 months after",
+          "changes": [
+            {
+              "path": "support.marketingShare",
+              "value": 0.2
+            },
+            {
+              "path": "support.lagMonths",
+              "value": 18
+            }
+          ]
+        },
+        {
+          "id": "none",
+          "label": "No support",
+          "changes": [
+            {
+              "path": "support.marketingShare",
+              "value": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "withdrawals",
+      "title": "Withdrawals and refunds",
+      "note": "Clients who leave the programme after starting, and what they get back. Most of the price is paid at the first visit, so refunds come out of cash already spent.",
+      "cases": [
+        {
+          "id": "plan",
+          "label": "Plan: 3% withdraw, 50% refunded",
+          "changes": []
+        },
+        {
+          "id": "6",
+          "label": "6% withdraw, 50% refunded",
+          "changes": [
+            {
+              "path": "funnel.withdraw",
+              "value": 0.06
+            }
+          ]
+        },
+        {
+          "id": "10",
+          "label": "10% withdraw, 50% refunded",
+          "changes": [
+            {
+              "path": "funnel.withdraw",
+              "value": 0.1
+            }
+          ]
+        },
+        {
+          "id": "10full",
+          "label": "10% withdraw, fully refunded",
+          "changes": [
+            {
+              "path": "funnel.withdraw",
+              "value": 0.1
+            },
+            {
+              "path": "funnel.refund",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -19,7 +19,7 @@
       "group": "Partners",
       "label": "Physician network in",
       "short": "Physician network",
-      "detail": "US Camp physician network: 60% of new clients by referral (35% alone), lead conversion 14% (10% alone). Paid in shares.",
+      "detail": "US Camp physician network: 60% of new clients by referral (35% alone), lead conversion 40% higher than alone. Paid in shares.",
       "changes": [
         {
           "path": "partners.physicians",

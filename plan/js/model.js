@@ -14,6 +14,10 @@
   ];
 
   const clone = (o) => JSON.parse(JSON.stringify(o));
+  // months from marketing spend to the support payment (v5/v6 default: a year)
+  const supportLag = (SP) => Math.max(0, Math.round(SP && SP.lagMonths != null ? SP.lagMonths : SP && SP.lagYears != null ? SP.lagYears * 12 : 12));
+  // a per-year input given either as one value or as Y1–Y5 (the last value carries on)
+  const atYear = (x, i) => (Array.isArray(x) ? x[Math.min(i, x.length - 1)] : x);
   const sum = (a) => a.reduce((s, v) => s + v, 0);
   const roundUp = (v) => Math.ceil(v - 1e-9);
 
@@ -47,6 +51,7 @@
     let o = obj;
     for (let i = 0; i < parts.length - 1; i++) {
       const k = parts[i];
+      if (!Array.isArray(o) && o[k] == null) o[k] = {};
       o = Array.isArray(o) && !/^\d+$/.test(k) ? o.find((x) => x.id === k) : o[k];
     }
     const last = parts[parts.length - 1];
@@ -89,10 +94,11 @@
         const wear = D.wearables[lvl];
         const delivery = first + later + physician + draws + tele + box + support + report + platform + wear;
         const processing = E.addons.processing * price;
-        const referral = E.funnel.referralShare * E.addons.referralCommission * price;
+        const ref3 = atYear(E.funnel.referralShare, 2);           // unit economics use year 3, like cost per lead
+        const referral = ref3 * E.addons.referralCommission * price;
         const contribution = price - delivery - processing - referral;
         const cacY3 = E.funnel.costPerLead[2] / E.funnel.conversion;
-        const acquisition = (1 - E.funnel.referralShare) * cacY3 / (1 - E.funnel.cancelBeforeVisit);
+        const acquisition = (1 - ref3) * cacY3 / (1 - E.funnel.cancelBeforeVisit);
         const afterAcq = contribution - acquisition;
         const renewPrice = price * pr.renewalPrice;
         const renewContribution = renewPrice * (1 - E.addons.processing) - delivery;
@@ -129,7 +135,12 @@
     let lossCF = 0, cumCash = 0, unearned = 0;
     let c2 = 0, c3 = 0, c4 = 0;           // clients in 2nd, 3rd, 4th+ program year (rows 106–108)
     const baseRenew = E.scenarios.base.renewal;
-    const plan = fn.leads.map((l) => l * al.conversion / (1 - al.referralShare) / (1 - E.prices.companionShare));
+    // Funnel stages (logic.funnelStages): conversion is lead -> deposit and cancelBeforeVisit the share of
+    // deposits that never start, so started clients = leads x conversion x (1 - cancel) and lead spend =
+    // leads x cost per lead exactly. Off (v5): conversion is lead -> started client.
+    const stages = !!(E.logic && E.logic.funnelStages);
+    const keep = stages ? 1 - fn.cancelBeforeVisit : 1;
+    const plan = fn.leads.map((l, i) => l * al.conversion * keep / (1 - atYear(al.referralShare, i)) / (1 - E.prices.companionShare));
     // Whole clients: every count of people is a whole number, split over the six packages.
     const whole = !(E.logic && E.logic.wholeClients === false);
     const n = (v) => (whole ? Math.round(v + 1e-9) : v);
@@ -137,6 +148,14 @@
     const split = (total) => (whole ? allocate(total, shares) : shares.map((x) => total * x));
     const dot = (counts, k) => sum(counts.map((c, j) => c * UE.cols[j][k]));
     let activeCountries = 0;
+    // Costs carried by a partner in kind (Plus International): worked out in full, kept out of the P&L.
+    const IK = E.inKind || {};
+    const ikTeam = new Set(IK.team || []), ikItems = new Set(IK.items || []);
+    // Ministry of Trade marketing support: a share of eligible marketing spend, received a year later.
+    const SP = E.support || { marketingShare: 0 };
+    // Payment schedule (finance.payment): deposit at sale, a share of the rest at the first visit, the remainder
+    // in monthly instalments. Absent (v5): finance.upfront at enrolment, the balance six months later.
+    const PAY = F.payment || null;
 
     for (let i = 0; i < YEARS; i++) {
       const r = {};
@@ -145,8 +164,10 @@
       r.newClients = n(plan[i] * S.volume);
       r.companions = n(r.newClients * E.prices.companionShare);
       r.acquired = r.newClients - r.companions;
-      r.referred = n(r.acquired * fn.referralShare);
+      r.referred = n(r.acquired * atYear(fn.referralShare, i));
       r.marketing = r.acquired - r.referred;
+      r.deposits = stages ? r.marketing / (1 - fn.cancelBeforeVisit) : r.marketing;   // from marketing leads
+      r.cancelled = r.deposits - r.marketing;
       if (i > 0) {
         const n2 = n(prev.newClients * S.renewal);
         const n3 = n(c2 * E.retention.y3 * S.renewal / baseRenew);
@@ -181,7 +202,9 @@
       const p = prev || { bNew: 0, bRenew: 0, refunds: 0, bAddon: 0, bExpComp: 0, programYears: 0, costIdx: 0, visits: 0, deliveryBase: 0, expCompanions: 0 };
       r.progRevenue = mid * (r.bNew + r.bRenew + r.refunds) + (1 - mid) * (p.bNew + p.bRenew + p.refunds);
       r.addonRevenue = mid * (r.bAddon + r.bExpComp) + (1 - mid) * (p.bAddon + p.bExpComp);
-      r.revenue = r.progRevenue + r.addonRevenue;
+      // deposits of clients who cancel before the first visit are kept
+      r.forfeitRevenue = PAY && stages ? r.marketing * fn.cancelBeforeVisit / (1 - fn.cancelBeforeVisit) * PAY.deposit * r.priceIdx : 0;
+      r.revenue = r.progRevenue + r.addonRevenue + r.forfeitRevenue;
       r.growth = prev && prev.revenue ? r.revenue / prev.revenue - 1 : 0;
 
       // FTE
@@ -197,7 +220,11 @@
       r.fteTotal = sum(Object.values(fte));
       const pay = (t) => fte[t.id] * t.cost * 12 * r.costIdx * (pilot * t.y1 + (1 - pilot));
       r.teamCost = {};
-      for (const t of team) r.teamCost[t.id] = pay(t);
+      r.inKindTeam = {};
+      for (const t of team) {
+        if (ikTeam.has(t.id)) { r.inKindTeam[t.id] = pay(t); r.teamCost[t.id] = 0; }
+        else r.teamCost[t.id] = pay(t);
+      }
 
       // cost of service
       r.partnerDelivery = (mid * r.deliveryBase * r.costIdx + (1 - mid) * p.deliveryBase * p.costIdx) * S.partnerCost * wr;
@@ -215,7 +242,6 @@
       r.acquisition = r.marketing * cac * S.cac / (1 - fn.cancelBeforeVisit);
       r.brand = E.overheads.brand * 12 * r.costIdx;
       r.advisors = sum(team.filter((t) => t.group === "sales").map((t) => r.teamCost[t.id]));
-      r.salesMarketing = r.acquisition + r.brand + r.advisors;
       r.leadership = sum(team.filter((t) => t.group === "ga").map((t) => r.teamCost[t.id]));
       activeCountries += E.countries.opened[i];
       const O = E.overheads;
@@ -225,14 +251,28 @@
       r.accounting = O.accounting * r.costIdx;
       r.platformFee = O.platformFee * 12 * r.costIdx * (pilot ? O.platformFeeY1 : 1);
       r.travel = O.travel * r.costIdx;
+      r.inKindItems = {};
+      for (const k of ["office", "legal", "insurance", "accounting", "platformFee", "travel", "brand"]) {
+        if (ikItems.has("overheads." + k)) { r.inKindItems["overheads." + k] = r[k]; r[k] = 0; }
+      }
+      r.salesMarketing = r.acquisition + r.brand + r.advisors;
       r.ga = r.leadership + r.office + r.legal + r.insurance + r.accounting + r.platformFee + r.travel;
       const su = E.setup;
-      r.setup = pilot * (su.legal + su.brand + su.platform + su.clinical + su.recruitment + su.contracting)
+      const setupKeys = ["legal", "brand", "platform", "clinical", "recruitment", "contracting"];
+      for (const k of setupKeys) if (pilot && ikItems.has("setup." + k)) r.inKindItems["setup." + k] = su[k];
+      r.setup = pilot * sum(setupKeys.filter((k) => !ikItems.has("setup." + k)).map((k) => su[k]))
         + (yr > 1 ? E.countries.opened[i] * E.countries.oneOff * r.costIdx : 0)
         + (yr === 2 ? su.platformBalanceY2 : 0);
       r.contingency = (r.salesMarketing + r.ga + r.setup) * O.contingency;
       r.opex = r.salesMarketing + r.ga + r.setup + r.contingency;
-      r.ebitda = r.grossProfit - r.opex;
+      r.inKind = sum(Object.values(r.inKindTeam)) + sum(Object.values(r.inKindItems));
+      r.mktEligible = r.acquisition + r.brand;
+      // support arrives lag months after the spend; with spend even over its year, a lag of 12k + q months
+      // brings (12 - q)/12 of year i-k's spend and q/12 of year i-k-1's
+      const lag = supportLag(SP), lk = Math.floor(lag / 12), lq = lag % 12;
+      const elig = (j) => (j >= 0 && j < i ? y[j].mktEligible : 0);
+      r.marketingSupport = (SP.marketingShare || 0) * (elig(i - lk) * (12 - lq) / 12 + elig(i - lk - 1) * lq / 12);
+      r.ebitda = r.grossProfit - r.opex + r.marketingSupport;
       r.ebitdaMargin = r.revenue ? r.ebitda / r.revenue : 0;
       r.pbt = r.ebitda;
       r.taxable = Math.max(0, r.pbt - lossCF);
@@ -243,6 +283,19 @@
 
       // cash
       const up = F.upfront;
+      if (PAY) {
+        // share of a year's programme value collected in that year: deposit and first-visit payment in the
+        // start year; instalments over B months after the first visit, of which 1 - B/24 fall in-year on average
+        const inYear = (dep) => dep + (1 - dep) * (PAY.startShare + (1 - PAY.startShare) * Math.max(0, 1 - PAY.balanceMonths / 24));
+        const depShare = r.newClients ? Math.min(1, PAY.deposit * r.priceIdx / (r.bNew / r.newClients)) : 0;
+        const uN = inYear(depShare), uR = inYear(0);
+        const wrY = (b) => b * (1 + (r.bNew + r.bRenew ? r.refunds / (r.bNew + r.bRenew) : 0));
+        const pwr = (b) => b * (1 + (p.bNew + p.bRenew ? p.refunds / (p.bNew + p.bRenew) : 0));
+        r.forfeited = r.forfeitRevenue;
+        r.cashIn = wrY(r.bNew) * uN + wrY(r.bRenew) * uR + (prev ? pwr(p.bNew) * (1 - p.uN) + pwr(p.bRenew) * (1 - p.uR) : 0)
+          + r.addonRevenue + r.forfeited;
+        r.uN = uN; r.uR = uR;
+      } else
       r.cashIn = (r.bookings + r.refunds) * (up + (1 - up) * mid) + (p.bookings !== undefined ? (p.bookings + p.refunds) : 0) * (1 - up) * (1 - mid);
       r.timing = (F.partnerUpfront - mid) * (r.deliveryBase * r.costIdx - p.deliveryBase * p.costIdx) * S.partnerCost * wr;
       r.cashOut = r.revenue - r.netProfit + r.timing;
@@ -253,10 +306,24 @@
       r.unearned = unearned;
       r.cumAfterReserve = r.cumCash - unearned * F.reserve[i];
       // leads needed for the same client plan once partners lift conversion and referrals
-      r.leads = fn.leads[i] * (al.conversion / fn.conversion) * (1 - fn.referralShare) / (1 - al.referralShare);
+      r.leads = fn.leads[i] * (al.conversion / fn.conversion) * (1 - atYear(fn.referralShare, i)) / (1 - atYear(al.referralShare, i));
       if (whole) r.leads = Math.ceil(r.leads - 1e-9);
       y.push(r);
       prev = r;
+    }
+    // Marketing paid L months before the clients it brings enrol: a year pays L/12 of next year's
+    // acquisition and the rest of its own (year 1 pays all of its own). Year 5's next year is taken flat.
+    const L = (E.monthly && E.monthly.marketingLeadMonths) || 0;
+    if (L) {
+      let cum = 0;
+      y.forEach((r, i) => {
+        const next = i < YEARS - 1 ? y[i + 1].acquisition : r.acquisition;
+        r.mktTiming = L / 12 * (next - (i ? r.acquisition : 0));
+        r.cashOut += r.mktTiming;
+        r.netCash = r.cashIn - r.cashOut;
+        cum += r.netCash; r.cumCash = cum;
+        r.cumAfterReserve = r.cumCash - r.unearned * F.reserve[i];
+      });
     }
     const out = { years: y };
     out.peakBeforeReserve = -Math.min(0, ...y.map((r) => r.cumCash));
@@ -275,7 +342,10 @@
     const whole = !(E.logic && E.logic.wholeClients === false);
     // new clients per month: the year's total spread over its months (whole clients if set)
     const newM = [];
-    for (let yi = 0; yi < 3; yi++) {
+    const L = E.monthly.marketingLeadMonths || 0;
+    const PAY = F.payment || null, SL = PAY ? PAY.saleToStartMonths || 0 : 0;
+    const stages = !!(E.logic && E.logic.funnelStages);
+    for (let yi = 0; yi < (L || SL ? 4 : 3); yi++) {
       const w = yi === 0 ? E.monthly.y1Cohorts : Array(12).fill(1 / 12);
       newM.push(...(whole ? allocate(Y[yi].newClients, w) : w.map((x) => x * Y[yi].newClients)));
     }
@@ -300,22 +370,47 @@
       r.priceNew = yr.bNew / Math.max(yr.newClients, 0.0001);
       r.priceRenew = yi === 0 ? 0 : yr.bRenew / Math.max(yr.renewing, 0.0001);
       r.value = r.newC * r.priceNew + r.renewC * r.priceRenew;
-      r.enrolPay = r.value * F.upfront * wr;
-      r.balance = m >= 6 ? rows[m - 6].value * (1 - F.upfront) * wr : 0;
+      if (PAY) {
+        // deposit at sale, SL months before the first visit; marketing clients who cancel leave theirs behind
+        const ys = Y[Math.floor((m + SL) / 12)];
+        const cancelRate = stages ? (ys.marketing / Math.max(ys.newClients, 0.0001)) * E.funnel.cancelBeforeVisit / (1 - E.funnel.cancelBeforeVisit) : 0;
+        // month 1 also takes the deposits of clients who start within the deposit lead time
+        const starting = m === 0 ? newM.slice(0, SL + 1).reduce((x, v) => x + v, 0) : newM[m + SL];
+        r.enrolPay = starting * (1 + cancelRate) * PAY.deposit * ys.priceIdx;
+        const owed = (r.newC * (r.priceNew - PAY.deposit * yr.priceIdx) + r.renewC * r.priceRenew) * wr;
+        const B = PAY.balanceMonths || 0, a = B ? PAY.startShare : 1;
+        r.balance = owed * a;
+        r.instBase = owed * (1 - a);
+        r.instal = 0; for (let k = 1; k <= B; k++) if (m - k >= 0) r.instal += rows[m - k].instBase / B;
+      } else {
+        r.enrolPay = r.value * F.upfront * wr;
+        r.balance = m >= 6 ? rows[m - 6].value * (1 - F.upfront) * wr : 0;
+        r.instal = 0;
+      }
       const setupM = E.monthly.setupMonths;
       r.addons = yi === 0 ? (m >= setupM ? (yr.bAddon + yr.bExpComp - yr.addonDelivery) / (12 - setupM) : 0) : (yr.bAddon + yr.bExpComp - yr.addonDelivery) / 12;
-      r.cashIn = r.enrolPay + r.balance + r.addons;
+      r.cashIn = r.enrolPay + r.balance + r.instal + r.addons;
       const pc = yr.costIdx * S.partnerCost * wr;
       r.firstVisit = r.started * yr.firstAvg * pc;
       let win = 0; for (let k = Math.max(0, m - 11); k < m; k++) win += rows[k].started;
       win += r.started;
       r.restYear = win * (yr.deliveryAvg - yr.firstAvg) / 12 * pc;
-      r.acq = r.newC * (yr.acquisition + yr.referral) / Math.max(yr.newClients, 0.0001);
+      // lead spend is paid L months before the clients it brings enrol; referral commission at enrolment
+      const ahead = Y[Math.floor((m + L) / 12)];
+      const perLead = ahead.acquisition / Math.max(ahead.newClients, 0.0001);
+      // month 1 also pays for clients who start within the lead time (their marketing would fall before month 1)
+      r.leadSpend = (m === 0 ? newM.slice(0, L + 1).reduce((a, x) => a + x, 0) * Y[0].acquisition / Math.max(Y[0].newClients, 0.0001) : newM[m + L] * perLead);
+      r.acq = r.leadSpend + r.newC * yr.referral / Math.max(yr.newClients, 0.0001);
       r.processing = r.cashIn * E.addons.processing;
       r.salaries = (yr.careTeam + yr.advisors + yr.leadership) / 12;
       r.overheads = (yr.brand + yr.office + yr.legal + yr.insurance + yr.accounting + yr.platformFee + yr.travel + yr.contingency) / 12;
       r.setup = m < setupM ? Y[0].setup / setupM : (m === 12 ? Y[1].setup : (m === 24 ? Y[2].setup : 0));
       r.cashOut = r.firstVisit + r.restYear + r.acq + r.processing + r.salaries + r.overheads + r.setup;
+      // marketing support: a share of the month's eligible spend comes back twelve months later
+      r.mktSpend = r.leadSpend + yr.brand / 12;
+      const sl = supportLag(E.support);
+      r.support = m >= sl ? ((E.support && E.support.marketingShare) || 0) * rows[m - sl].mktSpend : 0;
+      r.cashIn += r.support;
       r.net = r.cashIn - r.cashOut;
       cum += r.net; r.cum = cum;
       // reserve on unearned client cash
@@ -323,7 +418,7 @@
       let ew = 0; for (let k = Math.max(0, m - 11); k < m; k++) ew += rows[k].progStarted;
       ew += r.progStarted;
       r.earned = ew / 12;
-      cumPaid += r.enrolPay + r.balance; cumEarned += r.earned;
+      cumPaid += r.enrolPay + r.balance + r.instal; cumEarned += r.earned;
       r.unearned = Math.max(0, cumPaid - cumEarned);
       r.held = r.unearned * F.reserve[yi];
       r.cumAfter = r.cum - r.held;
@@ -342,7 +437,18 @@
   }
 
   // ------------------------------------------------------------ everything
-  function compute(A) {
+  // No growth investment: new clients held at the chosen year's level (leads and marketing
+  // flat from then on), no further source countries.
+  function noGrowthPlan(A) {
+    const B = clone(A);
+    const h = Math.min(YEARS, Math.max(1, (A.noGrowth && A.noGrowth.holdYear) || 1)) - 1;
+    for (let i = h + 1; i < YEARS; i++) {
+      B.funnel.leads[i] = A.funnel.leads[h];
+      B.countries.opened[i] = 0;
+    }
+    return B;
+  }
+  function core(A) {
     const E = resolve(A);
     const UE = unitEconomics(E);
     const res = { E, UE, scen: {} };
@@ -357,8 +463,91 @@
     res.funding = base.raise;
     return res;
   }
+  // Pre-seed + seed: the pre-seed carries the plan to the seed month (low point plus buffer); the seed
+  // covers the rest of the funding need, and anything above that is surplus.
+  function rounds(A, res) {
+    const Rd = A.rounds || {};
+    const X = Math.min(MONTHS - 1, Math.max(1, Math.round(Rd.seedMonth || 9))), seed = Math.max(0, Rd.seedAmount || 0);
+    const buf = 1 + A.finance.buffer;
+    // pre-seed: a fixed amount when set, otherwise sized to the low point up to the seed month plus the buffer
+    const preNeeded = lowTo(res.monthly, X) * buf;
+    const fixed = Rd.preSeedAmount > 0;
+    const pre = fixed ? Rd.preSeedAmount : preNeeded;
+    const out = { seedMonth: X, seed, pre, fixed, preNeeded, total: pre + seed, single: res.funding };
+    // the month the pre-seed alone runs out (cash after the reserve below zero), and what is left at the low point before the seed
+    const out1 = res.monthly.rows.findIndex((r) => r.cumAfter + pre < -0.5);
+    out.preLasts = out1 < 0 ? MONTHS : out1;
+    out.cushion = pre - lowTo(res.monthly, X);
+    out.seedNeeded = Math.max(0, res.funding - pre);
+    out.surplus = seed - out.seedNeeded;
+    out.cash = roundsPath(res.monthly, out);
+    out.low = Math.min(...out.cash);
+    out.lowMonth = out.cash.indexOf(out.low) + 1;
+    return out;
+  }
+  const lowTo = (mo, k) => -Math.min(0, ...mo.rows.slice(0, k).map((r) => r.cumAfter));
+  const roundsPath = (mo, rd) => mo.rows.map((r) => r.cumAfter + rd.pre + (r.m > rd.seedMonth ? rd.seed : 0));
+  // A plan is carried by the rounds when they cover its funding need and the pre-seed still reaches the seed month.
+  function carried(A, rd, r) {
+    return r.funding <= rd.total + 0.5 && lowTo(r.monthly, rd.seedMonth) * (1 + A.finance.buffer) <= rd.pre + 0.5;
+  }
 
-  const api = { compute, resolve, getPath, setPath, clone, SCEN, YEARS, MONTHS };
+  // Growth options after the seed: leads scaled from the first year whose marketing is paid after it.
+  const GROWTH = [1, 1.5, 2, 3];
+  function growthOptions(A, res) {
+    const rd = res.rounds, L = (A.monthly && A.monthly.marketingLeadMonths) || 0;
+    const fromYear = Math.floor((rd.seedMonth + L - 1) / 12) + 2;
+    const options = fromYear > YEARS ? [] : GROWTH.map((g) => {
+      const B = clone(A);
+      for (let i = fromYear - 1; i < YEARS; i++) B.funnel.leads[i] = Math.round(A.funnel.leads[i] * g);
+      const r = g === 1 ? res : core(B);
+      return { g, plan: r.scen.base, need: r.funding, covered: carried(A, rd, r), cash: roundsPath(r.monthly, rd) };
+    });
+    const ok = options.filter((o) => o.covered);
+    return { fromYear, options, growth: ok.length ? ok[ok.length - 1] : null };
+  }
+
+  // ------------------------------------------------------------ business scenarios
+  // Each case is a set of input changes on the plan, computed in full (P&L, monthly cash, funding).
+  // hold "plan": leads re-solved so the new-client plan stays as set (more or fewer leads to buy);
+  // hold "budget": leads as set, so the client plan moves instead.
+  const clientsPerLead = (A, i) => {
+    const f = A.funnel, keep = A.logic && A.logic.funnelStages ? 1 - f.cancelBeforeVisit : 1;
+    return f.conversion * keep / (1 - atYear(f.referralShare, i)) / (1 - A.prices.companionShare);
+  };
+  function applyCase(A, cs, hold) {
+    const B = clone(A);
+    for (const c of cs.changes || []) setPath(B, c.path, clone(c.value));
+    if (hold === "plan") B.funnel.leads = A.funnel.leads.map((l, i) => Math.round(l * clientsPerLead(A, i) / clientsPerLead(B, i)));
+    return B;
+  }
+  function scenarioCase(A, res, cs, hold) {
+    const B = applyCase(A, cs, hold);
+    const r = cs.changes && cs.changes.length ? core(B) : res, P = r.scen.base;
+    const rd = rounds(B, r);
+    return {
+      id: cs.id, label: cs.label, note: cs.note, plan: !(cs.changes && cs.changes.length),
+      funding: r.funding, lowMonth: r.monthly.lowAfterMonth, preNeeded: rd.preNeeded, carried: carried(A, res.rounds, r),
+      years: P.years, firstEbitda: P.firstEbitda, netProfit5: P.netProfit5,
+      leads5: B.funnel.leads.reduce((a, v) => a + v, 0), spend5: P.years.reduce((a, y) => a + y.acquisition, 0),
+    };
+  }
+  function scenarios(A, res, defs, holds) {
+    return (defs.groups || []).map((g) => {
+      const hold = g.holdable ? (holds && holds[g.id]) || "plan" : null;
+      return { id: g.id, title: g.title, note: g.note, holdable: !!g.holdable, hold, cases: g.cases.map((cs) => scenarioCase(A, res, cs, hold)) };
+    });
+  }
+
+  function compute(A) {
+    const res = core(A);
+    const ng = core(noGrowthPlan(A));
+    res.noGrowth = Object.assign(ng.scen.base, { monthly: ng.monthly, funding: ng.funding });
+    res.rounds = rounds(A, res);
+    return res;
+  }
+
+  const api = { atYear, compute, growthOptions, scenarios, applyCase, carried, noGrowthPlan, resolve, getPath, setPath, clone, SCEN, YEARS, MONTHS };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.APModel = api;
 })(typeof window !== "undefined" ? window : globalThis);

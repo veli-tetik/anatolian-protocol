@@ -5,7 +5,7 @@
   const $ = (s, r = document) => r.querySelector(s);
   const YRS = ["Y1", "Y2", "Y3", "Y4", "Y5"];
   const SC = { base: "Base", downside: "Downside", upside: "Upside" };
-  const LS_DRAFT = "ap.plan.draft", LS_VERSIONS = "ap.plan.versions";
+  const LS_DRAFT = "ap.plan.draft.v6", LS_VERSIONS = "ap.plan.versions";
 
   // ---------------------------------------------------------------- formatting
   const r0 = (v) => Math.round(v);
@@ -40,7 +40,7 @@
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
   // ---------------------------------------------------------------- state
-  const S = { issues: [], ref: null, A: null, name: "v5 baseline", levers: [], pick: null, scen: "base", metric: "funding", changedOnly: false, R: null, refR: null };
+  const S = { issues: [], ref: null, v6: null, scenDefs: { groups: [] }, holds: { conversion: "plan", referral: "plan" }, scenCache: null, A: null, name: "v6 lean plan", levers: [], pick: null, scen: "base", metric: "funding", changedOnly: false, R: null, refR: null };
 
   function flatten(A) {
     const out = {};
@@ -71,6 +71,13 @@
     m["partners.revenueShare"] = "Partner revenue share";
     m["monthly.y1Cohorts"] = "Pilot cohorts by month (year 1)";
     m["monthly.setupMonths"] = "Set-up months before launch";
+    m["logic.funnelStages"] = "Funnel in stages";
+    m["rounds.seedMonth"] = "Seed closes at the end of month";
+    m["rounds.seedAmount"] = "Seed amount";
+    m["rounds.preSeedAmount"] = "Pre-seed amount";
+    m["monthly.marketingLeadMonths"] = "Marketing paid ahead of enrolment, months";
+    m["inKind.team"] = "Team carried by Plus International in kind";
+    m["inKind.items"] = "Costs carried by Plus International in kind";
     return m;
   })();
   const labelOf = (p) => {
@@ -82,6 +89,8 @@
     return p;
   };
   const fmtVal = (p, v) => {
+    if (p === "inKind.team") return v.map((id) => (S.A.team.find((t) => t.id === id) || { name: id }).name).join(" · ") || "None";
+    if (p === "inKind.items") return v.map((k) => IK_ITEMS[k] || k).join(" · ") || "None";
     if (Array.isArray(v)) return v.map((x) => fmtVal(p, x)).join(" · ");
     const f = SCHEMA.flatMap((s) => s.fields).find((x) => x.path === p);
     if (typeof v === "boolean") return v ? "On" : "Off";
@@ -96,6 +105,13 @@
     try { localStorage.setItem(LS_DRAFT, JSON.stringify({ name: S.name, A: S.A })); } catch (e) { /* storage unavailable */ }
     renderFoot();
   }
+  // business scenarios, computed in full; cached until the plan or a hold choice changes
+  function scen() {
+    const key = JSON.stringify([S.A, S.holds]);
+    if (!S.scenCache || S.scenCache.key !== key) S.scenCache = { key, groups: M.scenarios(S.A, S.R, S.scenDefs, S.holds) };
+    return S.scenCache.groups;
+  }
+  const worst = (g) => g.cases.reduce((a, c) => (c.funding > a.funding ? c : a), g.cases[0]);
   function setA(A, name) { S.A = M.clone(A); if (name) S.name = name; S.pick = null; recompute(); }
   function versions() { try { return JSON.parse(localStorage.getItem(LS_VERSIONS) || "[]"); } catch (e) { return []; } }
   function saveVersions(v) { try { localStorage.setItem(LS_VERSIONS, JSON.stringify(v)); } catch (e) { toast("This browser does not allow saving. Export the plan as JSON instead."); } }
@@ -139,7 +155,7 @@
 
   // ---------------------------------------------------------------- shell
   const PAGES = [
-    { group: "Plan", items: [["overview", "Overview"], ["funding", "Funding"], ["scenarios", "Scenarios"], ["sensitivity", "Sensitivity"]] },
+    { group: "Plan", items: [["overview", "Overview"], ["funding", "Funding"], ["rounds", "Rounds"], ["scenarios", "Scenarios"], ["sensitivity", "Sensitivity"]] },
     { group: "Model", items: [["assumptions", "Assumptions"], ["unit", "Unit economics"], ["pnl", "P&L"], ["cash", "Monthly cash"], ["partners", "Partners"], ["checks", "Checks"]] },
     { group: "Work", items: [["versions", "Versions"]] },
   ];
@@ -205,10 +221,12 @@
         <section class="ui-panel"><h2>Revenue and EBITDA</h2><div class="sub">Base case, by year</div><div class="body"><div id="ch-rev"></div></div></section>
         <section class="ui-panel"><h2>Cumulative cash before funding</h2><div class="sub">First 36 months, after the prepayment reserve. The low point sets the raise.</div><div class="body"><div id="ch-cash"></div></div></section>
       </div>
-      <section class="ui-panel" style="margin-top:16px"><h2>Three scenarios</h2><div class="sub">Change the scenario levers on the Scenarios page.</div><div class="body">${scenarioTable()}</div></section>`;
+      <section class="ui-panel" style="margin-top:16px"><h2>Business scenarios</h2><div class="sub">Funding each group of cases needs, against the plan. Details and the cases themselves on the Scenarios page.</div><div class="body">${scenarioSummary()}</div></section>
+      ${noGrowthPanel()}`;
     return [html, () => {
       C.bars($("#ch-rev"), { labels: YRS, series: [{ name: "Revenue", c: 1, values: B.years.map((y) => y.revenue) }, { name: "EBITDA", c: 2, values: B.years.map((y) => y.ebitda) }], fmt: axis });
       cashChart($("#ch-cash"), R.monthly);
+      C.bars($("#ch-ng"), { labels: YRS, series: [{ name: "Growth plan", c: 1, values: B.years.map((y) => y.ebitda) }, { name: "No growth investment", c: 2, values: R.noGrowth.years.map((y) => y.ebitda) }], fmt: axis });
     }];
   };
   function cashChart(host, mo, compare) {
@@ -220,34 +238,98 @@
     const i = lowSrc.lowAfterMonth - 1;
     C.lines(host, { labels: rows.map((r) => "M" + r.m), series, fmt: axis, every: 6, mark: { i, v: lowSrc.rows[i].cumAfter, label: "Low " + kusd(-lowSrc.lowAfter) + " · M" + (i + 1) } });
   }
-  function scenarioTable() {
-    const R = S.R, sc = M.SCEN;
-    const row = (lab, f, cls) => ({ cells: [lab, ...sc.map((s) => f(R.scen[s]))], cls });
-    return table(["Result", "Base", "Downside", "Upside"], [
-      row("Funding to raise", (p) => kusd(p.raise), "key"),
-      row("First year with positive EBITDA", (p) => yearOf(p.firstEbitda)),
-      row("First year with positive net cash flow", (p) => yearOf(p.firstCash)),
-      row("New clients, Y5", (p) => num(p.years[4].newClients)),
-      row("Revenue, Y5", (p) => kusd(p.years[4].revenue)),
-      row("EBITDA, Y5", (p) => kusd(p.years[4].ebitda)),
-      row("EBITDA margin, Y5", (p) => pct(p.years[4].ebitdaMargin)),
-      row("Five-year net profit", (p) => kusd(p.netProfit5)),
-      row("Cash at end of year 5, after funding", (p) => kusd(p.cashEnd)),
-    ]);
+  // Base case against the same plan with new clients held flat (no growth investment).
+  function noGrowthPanel() {
+    const R = S.R, G = R.scen.base, N = R.noGrowth, h = (S.A.noGrowth && S.A.noGrowth.holdYear) || 1;
+    const row = (lab, f, cls) => ({ cells: [lab, ...G.years.map((y, i) => f(y, i))], cls });
+    const both = (k, fmt) => [row(`${k[0]}, growth plan`, (y) => fmt(y[k[1]])), row(`${k[0]}, no growth`, (y, i) => fmt(N.years[i][k[1]]), "minor")];
+    return `<section class="ui-panel" style="margin-top:16px"><h2>Without growth investment</h2>
+      <div class="sub">New clients held at the year-${h} level from Y${Math.min(5, h + 1)} on: marketing stays flat, no new source countries. Base case. EBITDA positive from ${yearOf(N.firstEbitda)}; five-year net profit ${kusd(N.netProfit5)}; funding ${kusd(N.funding)}.</div>
+      <div class="ui-grid"><div class="body"><div id="ch-ng"></div></div><div class="body">${table(["Base case", ...YRS], [
+        ...both(["New clients", "newClients"], (v) => num(v)),
+        ...both(["Revenue", "revenue"], kusd),
+        ...both(["EBITDA", "ebitda"], kusd),
+        ...both(["Net profit", "netProfit"], kusd),
+        ...both(["Cumulative cash", "cumCash"], kusd),
+      ])}</div></div></section>`;
+  }
+  function scenarioSummary() {
+    const G = scen(), base = S.R;
+    if (!G.length) return `<div class="ui-empty">No business scenarios defined (data/scenarios.json).</div>`;
+    return table(["Group", "Funding: lowest", "Funding: highest", "Hardest case", "Year-5 EBITDA range", "Cases carried by the rounds"], G.map((g) => {
+      const f = g.cases.map((c) => c.funding), e = g.cases.map((c) => c.years[4].ebitda), w = worst(g);
+      return { cells: [esc(g.title) + (g.hold ? `<br><small style="color:var(--ui-muted)">${g.hold === "plan" ? "same client plan" : "same marketing budget"}</small>` : ""), kusd(Math.min(...f)), kusd(Math.max(...f)), esc(w.label), `${kusd(Math.min(...e))} – ${kusd(Math.max(...e))}`, `${g.cases.filter((c) => c.carried).length} of ${g.cases.length}`] };
+    }).concat([{ cells: ["Plan", kusd(base.funding), kusd(base.funding), "–", kusd(base.scen.base.years[4].ebitda), "–"], cls: "minor" }]));
+  }
+
+  P.rounds = () => {
+    const Rd = S.R.rounds, mo = S.R.monthly, X = Rd.seedMonth, buf = pct(S.A.finance.buffer);
+    const GO = M.growthOptions(S.A, S.R);
+    const risks = [{ label: "Plan as set", funding: S.R.funding, carried: true }]
+      .concat(scen().map((g) => { const w = worst(g); return { label: `${g.title}: ${w.label}`, funding: w.funding, carried: w.carried }; }))
+      .concat([{ label: "No growth investment", funding: S.R.noGrowth.funding, carried: S.R.noGrowth.funding <= Rd.total + 0.5 }]);
+    const short = Rd.surplus < -0.5;
+    const html = header("Funding rounds", `Pre-seed to month ${X}, then a ${kusd(Rd.seed)} seed · base case · USD`)
+      + checksBanner()
+      + `<section class="ui-panel"><h2>Rounds</h2><div class="sub">Set a pre-seed amount, or leave it at 0 to size it to the lowest cash point up to the seed month plus the ${buf} buffer. The seed covers the rest of the plan's funding need; anything above that is surplus.</div><div class="body">
+        <div class="ui-field"><div class="lbl">Seed closes at the end of month</div><div class="inputs">${inputHTML("rounds.seedMonth", "int", "narrow")}</div></div>
+        <div class="ui-field"><div class="lbl">Pre-seed amount<small>0 = sized automatically</small></div><div class="inputs">${inputHTML("rounds.preSeedAmount", "usd")}</div></div>
+        <div class="ui-field"><div class="lbl">Seed amount</div><div class="inputs">${inputHTML("rounds.seedAmount", "usd")}</div></div>
+        ${issuesFor("rounds").map((m) => `<small class="ui-msg ${m.level}">${esc(m.msg)}</small>`).join("")}</div></section>
+      <div class="ui-tiles">
+        ${tile("Pre-seed", kusd(Rd.pre), Rd.fixed ? `Sized for month ${X} with ${buf} buffer: ${kusd(Rd.preNeeded)}` : `Carries the plan to month ${X}, incl. ${buf} buffer`, "focus")}
+        ${tile("Pre-seed lasts", Rd.preLasts >= 36 ? "36+ months" : "To month " + Rd.preLasts, Rd.cushion >= 0 ? `${kusd(Rd.cushion)} left at the low point before the seed` : `${kusd(-Rd.cushion)} short before the seed`)}
+        ${tile("Seed the plan needs", kusd(Rd.seedNeeded), `Of a ${kusd(Rd.seed)} seed`)}
+        ${tile(short ? "Seed shortfall" : "Seed surplus", kusd(Math.abs(Rd.surplus)), short ? "Raise more or close later" : "Free for growth and risk")}
+        ${tile("Raised in both rounds", kusd(Rd.total), `Single round: ${kusd(Rd.single)}`)}
+        ${tile("Lowest cash after both rounds", kusd(Rd.low), "Month " + Rd.lowMonth)}
+      </div>
+      <section class="ui-panel"><h2>Cash after the rounds</h2><div class="sub">First 36 months, after the prepayment reserve. Single round: the whole ${kusd(Rd.single)} on day one.</div><div class="body"><div id="ch-rounds"></div></div></section>
+      ${growthPanel(GO)}
+      <section class="ui-panel"><h2>Risks the two rounds carry</h2><div class="sub">The hardest case of each business scenario group (Scenarios page) against the ${kusd(Rd.total)} raised. Carried means both rounds cover its funding need and the ${kusd(Rd.pre)} pre-seed still reaches month ${X}.</div><div class="body">${table(["Case", "Funding needed", "Raised", "Carried"], risks.map((x) => ({
+        cells: [esc(x.label), kusd(x.funding), kusd(Rd.total), x.carried ? "Yes" : x.funding > Rd.total ? `No, ${kusd(x.funding - Rd.total)} short` : "No: the pre-seed runs out before the seed"],
+      })))}</div></section>`;
+    return [html, () => {
+      const months = mo.rows.map((r) => "M" + r.m);
+      const series = [{ name: "Pre-seed + seed", c: 1, values: Rd.cash }, { name: "Single round", c: 2, values: mo.rows.map((r) => r.cumAfter + Rd.single), dash: true }];
+      if (GO.growth && GO.growth.g > 1) series.push({ name: `Growth ×${GO.growth.g}`, c: 3, values: GO.growth.cash });
+      C.lines($("#ch-rounds"), { labels: months, series, fmt: axis, every: 6, mark: { i: X - 1, v: Rd.cash[X - 1], label: "Seed · M" + X } });
+      bindInputs();
+    }];
+  };
+  // Growth options after the seed: leads scaled from the first year whose marketing starts after it.
+  function growthPanel(Rd) {
+    if (!Rd.options.length) return `<section class="ui-panel"><h2>Growth the rounds can carry</h2><div class="body"><div class="ui-empty">The seed closes too late for any plan year to start after it.</div></div></section>`;
+    const O = Rd.options, fy = Rd.fromYear;
+    const row = (lab, f, cls) => ({ cells: [lab, ...O.map(f)], cls });
+    const allOk = O.every((o) => o.covered);
+    const note = allOk
+      ? `Every option is covered by the two rounds. The surplus also buys speed (team, countries, brand ahead of demand) and safety (risk cases below); the other limits are lead supply at this cost and delivery capacity.`
+      : `Largest option covered: ${Rd.growth ? "×" + Rd.growth.g : "none"}.`;
+    return `<section class="ui-panel"><h2>Growth the rounds can carry</h2><div class="sub">Leads × the multiplier from Y${fy}, the first year whose marketing is paid after the seed. ${note}</div><div class="body">${table(["Base case", ...O.map((o) => (o.g === 1 ? "Plan" : "×" + o.g))], [
+      row("New clients by year", (o) => o.plan.years.map((y) => num(y.newClients)).join(" / ")),
+      row("Revenue, Y5", (o) => kusd(o.plan.years[4].revenue)),
+      row("EBITDA, Y5", (o) => kusd(o.plan.years[4].ebitda), "key"),
+      row("Five-year net profit", (o) => kusd(o.plan.netProfit5)),
+      row("First year with positive EBITDA", (o) => yearOf(o.plan.firstEbitda)),
+      row("Funding needed", (o) => kusd(o.need)),
+      row("Lowest cash after both rounds", (o) => kusd(Math.min(...o.cash))),
+      row("Covered by the two rounds", (o) => (o.covered ? "Yes" : "No"), "total"),
+    ])}</div></section>`;
   }
 
   P.funding = () => {
     if (!S.pick) S.pick = S.levers.map((l) => l.id);
     const base = S.R;
     // apply the picked levers one by one, in list order, to see what each takes off
-    let A = M.clone(S.A), prev = base.funding, prevDown = base.scen.downside.raise;
+    let A = M.clone(S.A), prev = base.funding;
     const steps = [];
     for (const lv of S.levers) {
       const on = S.pick.includes(lv.id);
       const B = applyLevers(A, [lv.id]);
       const Rb = M.compute(B);
       const delta = Rb.funding - prev;
-      if (on) { steps.push({ lv, delta, R: Rb }); A = B; prev = Rb.funding; prevDown = Rb.scen.downside.raise; }
+      if (on) { steps.push({ lv, delta, R: Rb }); A = B; prev = Rb.funding; }
       else steps.push({ lv, delta, off: true, R: Rb });
     }
     const final = M.compute(A);
@@ -258,7 +340,6 @@
         ${tile("Current plan", kusd(base.funding), "Low point in month " + base.monthly.lowAfterMonth)}
         ${tile("With selected levers", kusd(final.funding), "Low point in month " + final.monthly.lowAfterMonth, "focus")}
         ${tile("Taken off", kusd(base.funding - final.funding), base.funding ? pct((base.funding - final.funding) / base.funding) + " lower" : "")}
-        ${tile("Downside case, with levers", kusd(final.scen.downside.raise), "Raise this to cover the downside too")}
         ${tile("First year with positive EBITDA", yearOf(final.scen.base.firstEbitda), "Five-year net profit " + kusd(final.scen.base.netProfit5))}
       </div>
       <section class="ui-panel"><h2>From the current plan to the minimum</h2><div class="sub">Each step is one lever, applied in order. Hover a bar for the amounts.</div><div class="body"><div id="ch-wf"></div></div></section>
@@ -276,8 +357,6 @@
             { cells: ["EBITDA, Y2", kusd(base.scen.base.years[1].ebitda), kusd(final.scen.base.years[1].ebitda)] },
             { cells: ["Team in year 1 (FTE)", num(base.scen.base.years[0].fteTotal), num(final.scen.base.years[0].fteTotal)] },
             { cells: ["Year-5 EBITDA", kusd(base.scen.base.years[4].ebitda), kusd(final.scen.base.years[4].ebitda)] },
-            { cells: ["Funding, downside case", kusd(base.scen.downside.raise), kusd(final.scen.downside.raise)] },
-            { cells: ["Funding, upside case", kusd(base.scen.upside.raise), kusd(final.scen.upside.raise)] },
           ])}</div></section>
       </div>`;
     return [html, () => {
@@ -297,22 +376,32 @@
   };
 
   P.scenarios = () => {
-    const keys = [["volume", "New-client volume multiplier", "x"], ["cac", "Acquisition cost multiplier", "x"], ["price", "Price realisation multiplier", "x"], ["renewal", "Renewal rate into program year 2", "%"], ["partnerCost", "Partner delivery cost multiplier", "x"]];
-    const R = S.R;
-    const html = header("Scenarios", "Five levers per scenario; every other input is shared · referral share " + pct(S.R.E.funnel.referralShare) + " (set by the partner switches)")
-      + `<section class="ui-panel"><h2>Levers</h2><div class="body">${table(["Lever", "Base", "Downside", "Upside"], keys.map(([k, lab, u]) => ({
-        cells: [lab, ...M.SCEN.map((s) => inputHTML(`scenarios.${s}.${k}`, u === "%" ? "pct" : "num", "narrow"))],
-      })))}</div></section>
-      <div class="ui-grid">
-        <section class="ui-panel"><h2>EBITDA by scenario</h2><div class="body"><div id="ch-e"></div></div></section>
-        <section class="ui-panel"><h2>Cumulative cash by scenario</h2><div class="sub">Year-end view, before funding and reserve</div><div class="body"><div id="ch-c"></div></div></section>
-      </div>
-      <section class="ui-panel" style="margin-top:16px"><h2>Results</h2><div class="body">${scenarioTable()}</div></section>`;
+    const G = scen(), Rd = S.R.rounds;
+    const groupHTML = (g) => {
+      const C2 = g.cases;
+      const row = (lab, f, cls) => ({ cells: [lab, ...C2.map(f)], cls });
+      const hold = g.holdable ? `<div class="ui-seg" role="group" aria-label="Hold">${[["plan", "Same client plan"], ["budget", "Same marketing budget"]].map(([h, t]) => `<button data-hold="${g.id}:${h}" aria-pressed="${g.hold === h}">${t}</button>`).join("")}</div>` : "";
+      const holdNote = !g.holdable ? "" : g.hold === "plan" ? " Same client plan: leads are re-solved so the new-client plan stays as set; lead spend moves." : " Same marketing budget: leads as set; the number of clients moves.";
+      return `<section class="ui-panel"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><h2>${esc(g.title)}</h2>${hold}</div><div class="sub">${esc(g.note || "")}${holdNote}</div><div class="body">${table(["", ...C2.map((c) => (c.plan ? "<b>" + esc(c.label) + "</b>" : esc(c.label)))], [
+        row("Funding to raise (one round)", (c) => kusd(c.funding), "key"),
+        row("Pre-seed needed / seed needed", (c) => `${kusd(c.preNeeded)} / ${kusd(Math.max(0, c.funding - c.preNeeded))}`),
+        row(`Carried by the planned rounds (${kusd(Rd.pre)} + ${kusd(Rd.seed)})`, (c) => (c.carried ? "Yes" : c.funding > Rd.total + 0.5 ? `No, ${kusd(c.funding - Rd.total)} short` : `Pre-seed ${kusd(c.preNeeded - Rd.pre)} short`)),
+        row("Lowest cash month", (c) => "M" + c.lowMonth, "minor"),
+        row("New clients by year", (c) => c.years.map((y) => num(y.newClients)).join(" / ")),
+        row("Leads bought, five years", (c) => num(c.leads5)),
+        row("Lead spend, five years", (c) => kusd(c.spend5)),
+        row("Revenue, Y5", (c) => kusd(c.years[4].revenue)),
+        row("EBITDA, Y5", (c) => kusd(c.years[4].ebitda), "key"),
+        row("First year with positive EBITDA", (c) => yearOf(c.firstEbitda)),
+        row("Five-year net profit", (c) => kusd(c.netProfit5), "total"),
+      ])}</div></section>`;
+    };
+    const html = header("Scenarios", "Business cases, one group at a time; every other input is the plan · computed in full, monthly cash included")
+      + (G.length ? `<section class="ui-panel"><h2>Funding to raise by case</h2><div class="sub">Plan: ${kusd(S.R.funding)}. Lowest and highest case in each group.</div><div class="body">${scenarioSummary()}</div></section>` + G.map(groupHTML).join("")
+        : `<div class="ui-empty">No business scenarios defined. Add them to <code>data/scenarios.json</code>.</div>`)
+      + `<div class="ui-note">Cases are defined in <code>data/scenarios.json</code>: each is a set of input changes on the plan. Benchmarks come from a comparable health-tourism business.</div>`;
     return [html, () => {
-      const ser = (f) => M.SCEN.map((s, i) => ({ name: SC[s], c: i + 1, values: R.scen[s].years.map(f) }));
-      C.lines($("#ch-e"), { labels: YRS, series: ser((y) => y.ebitda), fmt: axis });
-      C.lines($("#ch-c"), { labels: YRS, series: ser((y) => y.cumCash), fmt: axis });
-      bindInputs();
+      document.querySelectorAll("[data-hold]").forEach((b) => (b.onclick = () => { const [g, h] = b.dataset.hold.split(":"); S.holds[g] = h; render(true); }));
     }];
   };
 
@@ -330,7 +419,9 @@
       ["Team salaries", 0.8, 1.2, (f) => (A) => { for (const t of A.team) t.cost *= f; }],
       ["Overheads", 0.8, 1.2, (f) => scale(["overheads.office", "overheads.legal", "overheads.insurance", "overheads.accounting", "overheads.platformFee", "overheads.travel", "overheads.brand"], f)],
       ["One-off set-up", 0.8, 1.2, (f) => scale(["setup.legal", "setup.brand", "setup.platform", "setup.clinical", "setup.recruitment", "setup.contracting", "setup.platformBalanceY2"], f)],
-      ["Paid at enrolment", 0.9, 1.1, (f) => (A) => { A.finance.upfront = Math.min(1, A.finance.upfront * f); }],
+      S.A.finance.payment
+        ? ["Paid at the first visit", 0.8, 1.2, (f) => (A) => { A.finance.payment.startShare = Math.min(1, A.finance.payment.startShare * f); }]
+        : ["Paid at enrolment", 0.9, 1.1, (f) => (A) => { A.finance.upfront = Math.min(1, A.finance.upfront * f); }],
       ["Founding discount", 0.5, 1.5, (f) => (A) => { A.prices.foundingDiscount *= f; }],
     ];
     const rows = tests.map(([name, lo, hi, mk]) => {
@@ -439,12 +530,16 @@
     return [
       { group: "Clients and activity" },
       row("New clients enrolled", (y) => num(y.newClients, 0)), row("Renewing clients", (y) => num(y.renewing, 0)), row("Program years sold", (y) => num(y.programYears, 0)),
-      row("Active clients (average in care)", (y) => num(y.active, 0)), row("Visits to Türkiye", (y) => num(y.visits, 0)), row("Marketing-qualified leads", (y) => num(y.leads, 0), "minor"),
+      row("Active clients (average in care)", (y) => num(y.active, 0)), row("Visits to Türkiye", (y) => num(y.visits, 0)), row("Leads from paid marketing", (y) => num(y.leads, 0), "minor"),
+      ...(S.A.logic && S.A.logic.funnelStages ? [row("Deposits from those leads", (y) => num(y.deposits, 0), "minor"), row("Deposits cancelled before the first visit", (y) => num(y.cancelled, 0), "minor"),
+        row("Clients started from marketing", (y) => num(y.marketing, 0), "minor"), row("Clients through referral partners", (y) => num(y.referred, 0), "minor"), row("Companions with own protocol", (y) => num(y.companions, 0), "minor"),
+        row("Lead spend per started marketing client", (y) => usd(y.marketing ? y.acquisition / y.marketing : 0), "minor")] : []),
       { group: "Bookings" },
       row("New-client programs", u("bNew")), row("Renewals", u("bRenew")), row("Clinical add-ons", u("bAddon")), row("Experience-only companions", u("bExpComp")),
       row("Total bookings", u("bookings"), "total"), row("Refunds to withdrawing clients", u("refunds")),
       { group: "Profit and loss" },
-      row("Program revenue", u("progRevenue")), row("Add-on and companion revenue", u("addonRevenue")), row("Revenue", u("revenue"), "total"),
+      row("Program revenue", u("progRevenue")), row("Add-on and companion revenue", u("addonRevenue")),
+      ...(Y.some((y) => y.forfeitRevenue) ? [row("Forfeited deposits", u("forfeitRevenue"))] : []), row("Revenue", u("revenue"), "total"),
       row("Growth", (y, i) => (i ? pct(y.growth) : "–"), "minor"),
       row("Partner delivery", (y) => usd(-y.partnerDelivery)), row("Add-on and companion delivery", (y) => usd(-y.addonDelivery)), row("Payment processing", (y) => usd(-y.processing)),
       row("Referral commissions", (y) => usd(-y.referral)), row("Care team", (y) => usd(-y.careTeam)), row("Gross profit", u("grossProfit"), "total"), row("Gross margin", (y) => pct(y.grossMargin), "minor"),
@@ -452,27 +547,45 @@
       row("Leadership team", (y) => usd(-y.leadership)), row("Office, legal, insurance, accounting", (y) => usd(-(y.office + y.legal + y.insurance + y.accounting))),
       row("Technology platform base fee", (y) => usd(-y.platformFee)), row("Team travel, audits, events", (y) => usd(-y.travel)),
       row("One-off set-up and new countries", (y) => usd(-y.setup)), row("Contingency", (y) => usd(-y.contingency)), row("Operating expenses", (y) => usd(-y.opex), "total"),
+      ...(Y.some((y) => y.marketingSupport) ? [row("Marketing support received (Ministry of Trade)", u("marketingSupport"))] : []),
       row("EBITDA", u("ebitda"), "key"), row("EBITDA margin", (y) => pct(y.ebitdaMargin), "minor"), row("Corporate tax", (y) => usd(-y.tax)), row("Net profit", u("netProfit"), "total"),
       { group: "Team" },
       row("Total team (FTE)", (y) => num(y.fteTotal)),
+      ...inKindRows(p),
       { group: "Cash and funding" },
       row("Cash collected from clients", u("cashIn")), row("Cash paid out", (y) => usd(-y.cashOut)), row("Net cash flow", u("netCash"), "total"),
       row("Cumulative cash before funding", u("cumCash")), row("Client cash for service not yet delivered", u("unearned"), "minor"),
       row("Cumulative cash after the reserve", u("cumAfterReserve"), "total"),
     ];
   }
+  // Memo: costs a partner carries in kind, worked out in full but kept out of the P&L.
+  const IK_ITEMS = { "overheads.office": "Office and coworking", "overheads.legal": "Legal, regulatory, compliance", "overheads.insurance": "Liability insurance",
+    "overheads.accounting": "Accounting, audit and admin", "overheads.platformFee": "Technology platform base fee", "overheads.travel": "Team travel, audits, events",
+    "overheads.brand": "Brand and content", "setup.legal": "Set-up: legal, authorisations, US entity", "setup.brand": "Set-up: brand, website, launch content",
+    "setup.platform": "Set-up: platform configuration", "setup.clinical": "Set-up: clinical method, mock journey", "setup.recruitment": "Set-up: recruitment and training",
+    "setup.contracting": "Set-up: partner contracting and site audits" };
+  function inKindRows(p) {
+    const Y = p.years, IK = S.A.inKind || {};
+    if (!Y.some((y) => y.inKind)) return [];
+    const row = (lab, f, cls) => ({ cells: [lab, ...Y.map(f)], cls });
+    return [
+      { group: `Carried by ${IK.by || "partner"} in kind (memo, not in the P&L)` },
+      ...(IK.team || []).map((id) => { const t = S.A.team.find((x) => x.id === id); return row(`${t ? t.name : id} (${Y.map((y) => num(y.fte[id] || 0)).join("/")} FTE)`, (y) => usd(y.inKindTeam[id] || 0)); }),
+      ...(IK.items || []).map((k) => row(IK_ITEMS[k] || k, (y) => usd(y.inKindItems[k] || 0))),
+      row("Total carried in kind", (y) => usd(y.inKind), "total"),
+    ];
+  }
   P.pnl = () => {
-    const p = S.R.scen[S.scen];
-    const html = header("P&L", `${SC[S.scen]} case · five years · USD`,
-      `<div class="ui-seg" role="group" aria-label="Scenario">${M.SCEN.map((s) => `<button data-scen="${s}" aria-pressed="${S.scen === s}">${SC[s]}</button>`).join("")}</div><button class="ui-btn" id="csv">Export CSV</button>`)
-      + `<div class="ui-tiles">${tile("Funding to raise", kusd(p.raise), S.scen === "base" ? "Monthly view sets the base case" : "Year-end view")}${tile("First year with positive EBITDA", yearOf(p.firstEbitda))}${tile("Five-year net profit", kusd(p.netProfit5))}${tile("Cash at end of year 5", kusd(p.cashEnd), "After funding")}</div>`
+    const p = S.R.scen.base;
+    const html = header("P&L", "Plan · five years · USD · business scenarios on the Scenarios page",
+      `<button class="ui-btn" id="csv">Export CSV</button>`)
+      + `<div class="ui-tiles">${tile("Funding to raise", kusd(p.raise), "Monthly cash view")}${tile("First year with positive EBITDA", yearOf(p.firstEbitda))}${tile("Five-year net profit", kusd(p.netProfit5))}${tile("Cash at end of year 5", kusd(p.cashEnd), "After funding")}</div>`
       + `<section class="ui-panel"><div class="body">${table(["Line", ...YRS], pnlRows(p))}</div></section>`;
     return [html, () => {
-      document.querySelectorAll("[data-scen]").forEach((b) => (b.onclick = () => { S.scen = b.dataset.scen; render(); }));
       $("#csv").onclick = () => {
         const lines = [["Line", ...YRS].join(",")];
         for (const r of pnlRows(p)) if (r.cells) lines.push(r.cells.map((c) => `"${String(c).replace(/[$,]/g, "").replace("−", "-")}"`).join(","));
-        download(`anatolian-protocol-pnl-${S.scen}.csv`, lines.join("\n"), "text/csv");
+        download(`anatolian-protocol-pnl.csv`, lines.join("\n"), "text/csv");
       };
     }];
   };
@@ -491,7 +604,9 @@
         ${issuesFor("monthly").map((m) => `<small class="ui-msg ${m.level}">${esc(m.msg)}</small>`).join("")}</div></section>
       <section class="ui-panel"><h2>Month by month</h2><div class="body">${table(["Line", ...months], [
         { cells: ["New clients", ...rows.map((r) => num(r.newC, Number.isInteger(r.newC) ? 0 : 1))] }, { cells: ["Renewing clients", ...rows.map((r) => num(r.renewC, Number.isInteger(r.renewC) ? 0 : 1))] },
-        { group: "Cash in" }, rr("Payments at enrolment", "enrolPay"), rr("Balances six months later", "balance"), rr("Add-ons and companions, net", "addons"), rr("Cash in", "cashIn", "total"),
+        { group: "Cash in" }, ...(S.A.finance.payment
+          ? [rr("Deposits at sale", "enrolPay"), rr("Paid at the first visit", "balance"), rr("Instalments", "instal")]
+          : [rr("Payments at enrolment", "enrolPay"), rr("Balances six months later", "balance")]), rr("Add-ons and companions, net", "addons"), ...(rows.some((r) => r.support) ? [rr("Marketing support received", "support")] : []), rr("Cash in", "cashIn", "total"),
         { group: "Cash out" }, rr("Partners: first visit", "firstVisit"), rr("Partners: rest of the program year", "restYear"), rr("Acquisition and referral", "acq"),
         rr("Payment processing", "processing"), rr("Team salaries", "salaries"), rr("Brand, overheads, contingency", "overheads"), rr("Set-up and new countries", "setup"), rr("Cash out", "cashOut", "total"),
         { group: "Result" }, rr("Net cash flow", "net", "total"), rr("Cumulative cash before funding", "cum"), rr("Held in reserve", "held", "minor"), rr("Cumulative cash after the reserve", "cumAfter", "key"),
@@ -510,6 +625,10 @@
         <label class="ui-check"><input type="checkbox" data-sw="physicians"${Pn.physicians ? " checked" : ""}><span class="t">Physician network in the US and target countries</span><span></span><span class="x">US Camp: referring physicians and a scientific board; local licensed follow-up; credibility that lifts lead conversion.</span></label>
         <div class="ui-field"><div class="lbl">Partner revenue share, % of revenue<small>0% = paid in shares only. Applies when either group is in.</small></div><div class="inputs">${inputHTML("partners.revenueShare", "pct", "narrow")}</div></div>
       </div></section>
+      <section class="ui-panel"><h2>Carried by ${esc((S.A.inKind && S.A.inKind.by) || "Plus International")} in kind</h2><div class="sub">Ticked staff and infrastructure are provided by the partner: worked out in full on the P&L page as a memo, but not in the P&L, cash or funding. Five-year value now ${kusd(S.R.scen.base.years.reduce((a, y) => a + y.inKind, 0))}.</div><div class="body ui-grid">
+        <div>${S.A.team.map((t) => `<label class="ui-check"><input type="checkbox" data-ik="team:${t.id}"${((S.A.inKind || {}).team || []).includes(t.id) ? " checked" : ""}><span class="t">${esc(t.name)}</span><span></span><span class="x">${kusd(S.R.scen.base.years.reduce((a, y) => a + y.fte[t.id] * t.cost * 12 * y.costIdx * (y.pilot ? t.y1 : 1), 0))} over five years</span></label>`).join("")}</div>
+        <div>${Object.entries(IK_ITEMS).map(([k, lab]) => `<label class="ui-check"><input type="checkbox" data-ik="items:${k}"${((S.A.inKind || {}).items || []).includes(k) ? " checked" : ""}><span class="t">${esc(lab)}</span></label>`).join("")}</div>
+      </div></section>
       <section class="ui-panel"><h2>Effect of each group</h2><div class="sub">Computed live on the current plan</div><div class="body">${table(["Result (base case)", ...V.map((v) => v[0])], [
         { cells: ["Funding to raise", ...V.map((v) => kusd(v[1].funding))], cls: "key" },
         { cells: ["Saved against going alone", ...V.map((v) => kusd(V[0][1].funding - v[1].funding))] },
@@ -518,7 +637,6 @@
         { cells: ["First year with positive EBITDA", ...V.map((v) => yearOf(v[1].scen.base.firstEbitda))] },
         { cells: ["EBITDA, Y5", ...V.map((v) => kusd(v[1].scen.base.years[4].ebitda))] },
         { cells: ["Five-year net profit", ...V.map((v) => kusd(v[1].scen.base.netProfit5))] },
-        { cells: ["Funding to raise, downside", ...V.map((v) => kusd(v[1].scen.downside.raise))] },
       ])}</div></section>
       <section class="ui-panel"><h2>Levers the partners change</h2><div class="body">${table(["Lever", "Group", "Alone", "With partner", "Used now"], Pn.levers.map((lv) => {
         const alone = M.getPath(S.A, lv.path), used = M.getPath(S.R.E, lv.path);
@@ -526,6 +644,14 @@
       }))}</div></section>`;
     return [html, () => {
       document.querySelectorAll("[data-sw]").forEach((cb) => (cb.onchange = () => { S.A.partners[cb.dataset.sw] = cb.checked ? 1 : 0; recompute(); render(true); }));
+      document.querySelectorAll("[data-ik]").forEach((cb) => (cb.onchange = () => {
+        const [list, id] = cb.dataset.ik.split(":");
+        S.A.inKind = S.A.inKind || { by: "Plus International", team: [], items: [] };
+        const cur = new Set(S.A.inKind[list] || []);
+        if (cb.checked) cur.add(id); else cur.delete(id);
+        S.A.inKind[list] = (list === "team" ? S.A.team.map((t) => t.id) : Object.keys(IK_ITEMS)).filter((x) => cur.has(x));
+        recompute(); render(true);
+      }));
       bindInputs();
     }];
   };
@@ -559,8 +685,10 @@
   P.versions = () => {
     const vs = versions(), d = diff(S.A, S.ref);
     const presets = [
+      ["v6 lean plan", () => S.v6, "2% conversion at $75 a lead (benchmark; stress $150), 30 → 180 new clients a year, 40% marketing support a year later, staff and infrastructure from Plus International."],
       ["v5 baseline", () => S.ref, "The Excel model v5, converted 1:1."],
       ["Partner case (both groups)", () => { const A = M.clone(S.ref); A.partners.operator = 1; A.partners.physicians = 1; return A; }, "v5 with both partner groups switched in."],
+      ["v6 lean plan, lean pilot", () => applyLevers(S.v6, ["upfront", "founding", "atron", "team", "spend", "cohorts"]), "v6 with the payment-term, platform, team and spending levers on the Funding page; no partner switches."],
       ["Minimum investment (all levers)", () => applyLevers(S.ref, S.levers.map((l) => l.id)), "v5 with every lever on the Funding page applied."],
     ];
     const html = header("Versions", "Plans are JSON files: save them here, export them to the repository, share them as a link",
@@ -623,15 +751,15 @@
   window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => render(true), 150); });
   window.addEventListener("hashchange", () => render());
 
-  Promise.all([fetch("data/v5.json").then((r) => r.json()), fetch("data/levers.json").then((r) => r.json())])
-    .then(([v5, lv]) => {
-      S.ref = v5; S.levers = lv.levers; S.refR = M.compute(v5);
+  Promise.all(["data/v5.json", "data/v6.json", "data/levers.json", "data/scenarios.json"].map((u) => fetch(u).then((r) => r.json())))
+    .then(([v5, v6, lv, sc]) => {
+      S.ref = v5; S.v6 = v6; S.scenDefs = sc; S.levers = lv.levers; S.refR = M.compute(v5);
       if (!readShare()) {
         let draft = null;
         try { draft = JSON.parse(localStorage.getItem(LS_DRAFT) || "null"); } catch (e) { draft = null; }
-        if (draft && draft.A) { S.A = draft.A; S.name = draft.name; } else { S.A = M.clone(v5); }
+        if (draft && draft.A) { S.A = draft.A; S.name = draft.name; } else { S.A = M.clone(v6); }
       }
-      try { recompute(); } catch (e) { S.A = M.clone(v5); S.name = "v5 baseline"; recompute(); }
+      try { recompute(); } catch (e) { S.A = M.clone(v6); S.name = "v6 lean plan"; recompute(); }
       render();
     })
     .catch(() => {
