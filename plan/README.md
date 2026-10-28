@@ -20,7 +20,7 @@ Published with GitHub Pages at `/plan/` next to the presentation.
 | Partners | Operator + hospital and physician network switches, what each takes off, and the staff and costs Plus International carries in kind |
 | Clients | New, renewing and programme years by package; renewals by programme year (the loss curve) |
 | Team | Headcount and cost by role and year, company payroll against staff carried in kind by Plus International |
-| Operations | Volumes and spend with partners by year (hospital days, hotel nights, physician hours, labs, boxes); visits and hotel nights month by month |
+| Operations | ATRON platform fees by year (base, per client, set-up, equity); volumes and spend with partners by year (hospital days, hotel nights, physician hours, labs, boxes); visits and hotel nights month by month |
 | Checks | Model rules every input must meet (errors) and results worth a second look (warnings) |
 | Versions | Starting points, saved versions, JSON export/import, share links, change list |
 
@@ -39,7 +39,7 @@ Published with GitHub Pages at `/plan/` next to the presentation.
 
 ## Files
 
-- `data/v6.json` — the current plan (v6.4, `Anatolian_Protocol_PL_Feasibility_v6.4.xlsx` as data), loaded by default and the reference that changes are shown against: v6.3 (payment per visit, two rounds of $200k + $500k, a light pilot year with Plus International partner rates, a 5% founding discount and the ATRON fee waived) with a slimmer care team: care coordinators 1 per 60 active clients (at least 1), dietitians and coaches 1 per 120, concierges 1 per 250 visits. `tools/v62_inputs.json` and `tools/v63_inputs.json` keep earlier inputs for the regression check
+- `data/v6.json` — the current plan (v6.5, `Anatolian_Protocol_PL_Feasibility_v6.5.xlsx` as data), loaded by default and the reference that changes are shown against: v6.4 (payment per visit, two rounds of $200k + $500k, a light pilot year, a slimmer care team) with ATRON's platform fees as USD licence fees, flat in dollars instead of following the Türkiye cost index, and the $40k set-up balance taken in ATRON equity. `tools/v62_inputs.json` … `tools/v64_inputs.json` keep earlier inputs for the regression check
 - `data/v5.json` — the v5 Excel model as data (all assumptions), kept for history and the regression check
 - `data/levers.json` — funding levers
 - `data/scenarios.json` — business scenarios: groups of cases, each a set of input changes on the plan

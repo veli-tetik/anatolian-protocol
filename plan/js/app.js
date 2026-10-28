@@ -40,7 +40,7 @@
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
   // ---------------------------------------------------------------- state
-  const S = { asmNotes: false, asmSec: "prices", asmQuery: "", balMode: "rounds", issues: [], ref: null, v6: null, scenDefs: { groups: [] }, holds: { conversion: "plan", referral: "plan" }, scenCache: null, A: null, name: "v6.4 plan", levers: [], pick: null, scen: "base", metric: "funding", changedOnly: false, R: null, refR: null };
+  const S = { asmNotes: false, asmSec: "prices", asmQuery: "", balMode: "rounds", issues: [], ref: null, v6: null, scenDefs: { groups: [] }, holds: { conversion: "plan", referral: "plan" }, scenCache: null, A: null, name: "v6.5 plan", levers: [], pick: null, scen: "base", metric: "funding", changedOnly: false, R: null, refR: null };
 
   function flatten(A) {
     const out = {};
@@ -122,7 +122,7 @@
     return B;
   }
 
-  // share link: only the inputs that differ from the reference plan (v6.4)
+  // share link: only the inputs that differ from the reference plan (v6.5)
   function shareURL() {
     const d = diff(S.A, S.ref).map(([k, v]) => [k, v]);
     const payload = btoa(unescape(encodeURIComponent(JSON.stringify({ n: S.name, d })))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -177,7 +177,7 @@
   function renderFoot() {
     const n = diff(S.A, S.ref).length;
     $("#foot").innerHTML = `<div class="row"><span>Version</span><b>${esc(S.name)}</b></div>
-      <div class="row"><span>Changed from v6.4</span><b>${n} input${n === 1 ? "" : "s"}</b></div>
+      <div class="row"><span>Changed from v6.5</span><b>${n} input${n === 1 ? "" : "s"}</b></div>
       <div class="row"><span>Checks</span><b class="${errCount() ? "delta-bad" : ""}">${checksTxt()}</b></div>
       <div class="row"><span>Rounds</span><b>${kusd(S.R.rounds.pre)} + ${kusd(S.R.rounds.seed)}</b></div>
       <div class="row"><span>Rounds carry the plan</span><b class="${roundsStatus().ok ? "" : "delta-bad"}">${roundsStatus().ok ? "Yes" : "No"}</b></div>
@@ -222,9 +222,9 @@
   const tile = (k, v, d = "", cls = "") => `<div class="ui-tile ${cls}"><div class="k">${k}</div><div class="v">${v}</div><div class="d">${d}</div></div>`;
   const deltaTxt = (now, was, lowerIsGood = false) => {
     const d = now - was;
-    if (Math.abs(d) < 0.5) return "Same as v6.4";
+    if (Math.abs(d) < 0.5) return "Same as v6.5";
     const good = lowerIsGood ? d < 0 : d > 0;
-    return `<span class="${good ? "delta-good" : "delta-bad"}">${d > 0 ? "+" : "−"}${kusd(Math.abs(d))}</span> against v6.4`;
+    return `<span class="${good ? "delta-good" : "delta-bad"}">${d > 0 ? "+" : "−"}${kusd(Math.abs(d))}</span> against v6.5`;
   };
   function table(head, rows) {
     return `<div class="ui-table-wrap"><table class="ui-table"><thead><tr>${head.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.map((r) => {
@@ -527,7 +527,7 @@
     const v = M.getPath(S.A, path), r = M.getPath(S.ref, path);
     const changed = JSON.stringify(v) !== JSON.stringify(r);
     const bad = S.issues.some((i) => i.level === "error" && i.path === path);
-    const title = changed && r !== undefined ? `v6.4: ${fmtInput(r, kind)}` : "";
+    const title = changed && r !== undefined ? `v6.5: ${fmtInput(r, kind)}` : "";
     return `<input class="ui-input ${cls}${changed ? " changed" : ""}${bad ? " invalid" : ""}" type="text" inputmode="decimal" autocomplete="off" id="in-${path.replace(/\./g, "-")}" data-path="${path}" data-kind="${kind}" value="${fmtInput(v, kind)}" title="${title}"${bad ? ' aria-invalid="true"' : ""} aria-label="${esc(labelOf(path.replace(/\.\d+$/, "")))}">`;
   }
   function fieldInputs(f, v) {
@@ -548,7 +548,7 @@
     const unit = { usd: "USD" }[f.kind];
     const msgs = issuesFor(f.path);
     return `<div class="ui-field" data-field="${f.path}"><div class="lbl">${esc(f.label)}${unit ? ` <small style="display:inline">· ${unit}</small>` : ""}${f.note ? `<small>${esc(f.note)}</small>` : ""}${f.partner && (S.A.partners.operator || S.A.partners.physicians) ? "<small>A partner switch may override this value.</small>" : ""}
-      ${eff ? effectHTML(eff) : ""}<button class="ui-reset" data-reset="${f.path}"${changed ? "" : " hidden"}>Reset to v6.4</button>${msgs.map((m) => `<small class="ui-msg ${m.level}">${esc(m.msg)}</small>`).join("")}</div><div class="inputs">${inputs}</div></div>`;
+      ${eff ? effectHTML(eff) : ""}<button class="ui-reset" data-reset="${f.path}"${changed ? "" : " hidden"}>Reset to v6.5</button>${msgs.map((m) => `<small class="ui-msg ${m.level}">${esc(m.msg)}</small>`).join("")}</div><div class="inputs">${inputs}</div></div>`;
   }
   function bindInputs() {
     document.querySelectorAll("input[data-path]").forEach((inp) => inp.addEventListener("change", () => {
@@ -604,7 +604,7 @@
       <td class="asm-eff">${eff ? effectHTML(eff) : "–"}</td>
       ${S.asmNotes ? `<td class="asm-note">${esc(notes)}</td>` : ""}</tr>`;
   }
-  const asmGrid = (rows) => `<div class="ui-table-wrap"><table class="ui-table asm-grid"><thead><tr><th>Input</th><th>Value</th><th>Unit</th><th>Plan v6.4</th><th>Effect on cash need</th>${S.asmNotes ? "<th>Notes</th>" : ""}</tr></thead><tbody>${rows}</tbody></table></div>`;
+  const asmGrid = (rows) => `<div class="ui-table-wrap"><table class="ui-table asm-grid"><thead><tr><th>Input</th><th>Value</th><th>Unit</th><th>Plan v6.5</th><th>Effect on cash need</th>${S.asmNotes ? "<th>Notes</th>" : ""}</tr></thead><tbody>${rows}</tbody></table></div>`;
   const TEAM_SEC = { id: "team", title: "F · Team", fields: [] };
   const asmSections = () => SCHEMA.concat([TEAM_SEC]).slice().sort((a, b) => a.title.localeCompare(b.title));
   P.assumptions = () => {
@@ -652,9 +652,9 @@
         : `<div class="ui-empty">${S.changedOnly ? "No changed inputs here. Clear Changed only to see every input." : "No input matches."}</div>`) : "")
       + (showTeam ? (teamRows.length ? table(["Role", "Monthly cost", "Clients per FTE", "Minimum FTE", "Pilot-year factor", "Monthly cost +10%"], teamRows) : `<div class="ui-empty">No team row matches.</div>`) : "");
     const pager = q ? "" : `<div class="asm-pager"><button class="ui-btn small" data-step="-1"${at <= 0 ? " disabled" : ""}>Previous section</button><button class="ui-btn small" data-step="1"${at >= order.length - 1 ? " disabled" : ""}>Next section</button></div>`;
-    const html = header("Assumptions", `${changed.size} input${changed.size === 1 ? "" : "s"} changed from v6.4 · one section at a time · results update when you leave a field`,
+    const html = header("Assumptions", `${changed.size} input${changed.size === 1 ? "" : "s"} changed from v6.5 · one section at a time · results update when you leave a field`,
       `<input class="ui-input asm-search" id="asm-q" type="search" placeholder="Search inputs" aria-label="Search inputs" value="${esc(S.asmQuery)}">
-       <label class="ui-btn ghost" style="display:inline-flex;align-items:center;gap:6px"><input type="checkbox" id="only"${S.changedOnly ? " checked" : ""}> Changed only</label><button class="ui-btn" id="reset-all">Reset all to v6.4</button>`)
+       <label class="ui-btn ghost" style="display:inline-flex;align-items:center;gap:6px"><input type="checkbox" id="only"${S.changedOnly ? " checked" : ""}> Changed only</label><button class="ui-btn" id="reset-all">Reset all to v6.5</button>`)
       + checksBanner() + liveStrip()
       + `<div class="asm-layout">${nav}<section class="ui-panel asm-main"><div class="ui-panel-head"><h2>${title}</h2><div class="asm-pager">${fields && fields.some((f) => f.note) ? `<button class="ui-btn small" data-notes aria-pressed="${S.asmNotes}">${S.asmNotes ? "Hide notes" : `Show notes (${fields.filter((f) => f.note).length})`}</button>` : ""}${pager}</div></div><div class="sub">${sub}</div><div class="body">${body}</div></section></div>`;
     return [html, () => {
@@ -665,7 +665,7 @@
       const qi = $("#asm-q");
       qi.oninput = () => { clearTimeout(qi._t); qi._t = setTimeout(() => { S.asmQuery = qi.value; render(true); const n = $("#asm-q"); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }, 200); };
       $("#only").onchange = (e) => { S.changedOnly = e.target.checked; render(); };
-      $("#reset-all").onclick = () => { setA(S.ref, "v6.4 plan"); render(); toast("All inputs reset to v6.4."); };
+      $("#reset-all").onclick = () => { setA(S.ref, "v6.5 plan"); render(); toast("All inputs reset to v6.5."); };
     }];
   };
 
@@ -748,13 +748,29 @@
     }];
   };
 
+  // What ATRON (the platform) receives: base fee, per-client fees, set-up, and the set-up balance taken in equity.
+  function atronPanel(Y) {
+    const at = (k) => Y.map((y) => usd(y.atron[k]));
+    let cum = 0;
+    const O = S.A.overheads, inc = (S.A.atron && S.A.atron.increase) || 0;
+    return `<section class="ui-panel"><h2>ATRON platform</h2><div class="sub">Base fee ${usd(O.platformFee)} a month${O.platformFeeY1 === 0 ? " (waived in the pilot year)" : O.platformFeeY1 < 1 ? ` (${pct(O.platformFeeY1)} of it in the pilot year)` : ""}, ${usd(S.A.delivery.platformPerClient[0])} per client a year, ${S.A.atron ? (inc ? `rising ${pct(inc, 1)} a year in USD` : "flat in USD") : "following the Türkiye cost index"}. Per-client fees for the programme years started in the year.</div><div class="body">${table(["USD", ...YRS], [
+      { cells: ["Platform base fee", ...at("base")] },
+      { cells: ["Per-client platform fees", ...at("perClient")] },
+      { cells: ["Set-up (platform configuration)", ...at("setup")] },
+      { cells: ["Paid to ATRON in cash", ...at("total")], cls: "total" },
+      { cells: ["Share of revenue", ...Y.map((y) => pct(y.revenue ? y.atron.total / y.revenue : 0, 1))], cls: "minor" },
+      { cells: ["Cumulative cash to ATRON", ...Y.map((y) => usd((cum += y.atron.total)))], cls: "minor" },
+      { cells: ["Set-up balance taken in ATRON equity (not cash)", ...at("equity")] },
+    ])}</div></section>`;
+  }
+
   // Operations: what goes to the partners each year, and the visit load month by month.
   P.operations = () => {
     const Y = S.R.scen.base.years, mo = S.R.monthly.rows;
     const vol = (k, d = 0) => Y.map((y) => num(y.partners.volumes[k], d));
     const spend = (k) => Y.map((y) => usd(y.partners.usd[k]));
     const peak = mo.reduce((a, r) => (r.visits > a.visits ? r : a), mo[0]);
-    const html = header("Operations", "Partner volumes and spend by year · visits month by month · base case")
+    const html = header("Operations", "Partner volumes and spend by year · ATRON platform · visits month by month · base case")
       + checksBanner()
       + `<div class="ui-tiles">${tile("Paid to partners, year 5", kusd(Y[4].partners.total), `${pct(Y[4].partners.total / (Y[4].bNew + Y[4].bRenew))} of programme bookings`, "focus")}
         ${tile("Hospital measurement days, year 5", num(Y[4].partners.volumes.hospitalDays), "One per programme year")}
@@ -781,6 +797,7 @@
         { cells: ["Paid to partners", ...Y.map((y) => usd(y.partners.total))], cls: "total" },
         { cells: ["Share of programme bookings (same basis)", ...Y.map((y) => pct(y.bNew + y.bRenew ? y.partners.total / (y.bNew + y.bRenew) : 0))], cls: "minor" },
       ])}</div></section>
+      ${atronPanel(Y)}
       <section class="ui-panel"><h2>Visits month by month</h2><div class="sub">First visits when clients start; later visits by the package mix (Summer–Winter 6 months on, Seasonal 4 and 8). Counted in the month they happen, so yearly sums differ from the booked volumes above.</div><div class="body"><div id="ch-visits"></div>
         ${table(["Month", ...mo.map((r) => "M" + r.m)], [
           { cells: ["First visits", ...mo.map((r) => num(r.firstVisits, 1))] },
@@ -999,9 +1016,9 @@
   P.versions = () => {
     const vs = versions(), d = diff(S.A, S.ref);
     const presets = [
-      ["v6.4 plan", () => S.v6, "2% of leads become clients at $75 a lead (benchmark; stress $150), 30 → 180 new clients a year, 40% marketing support a year later, staff and infrastructure carried in kind by Plus International, payment per visit (front-loaded), a $200k pre-seed and a $500k seed at month 9, and a light pilot year: partner rates, a 5% founding discount, the ATRON fee waived."],
+      ["v6.5 plan", () => S.v6, "2% of leads become clients at $75 a lead (benchmark; stress $150), 30 → 180 new clients a year, 40% marketing support a year later, staff and infrastructure carried in kind by Plus International, payment per visit (front-loaded), a $200k pre-seed and a $500k seed at month 9, and a light pilot year: partner rates, a 5% founding discount, the ATRON fee waived."],
       ["v5 baseline", () => S.v5, "The Excel model v5, converted 1:1."],
-      ["v6.4 plan with every funding lever", () => applyLevers(S.v6, S.levers.map((l) => l.id)), "v6.4 with partner rates, the physician network, payment in full at the first visit, a 5% founding discount and the ATRON fee waived."],
+      ["v6.5 plan with every funding lever", () => applyLevers(S.v6, S.levers.map((l) => l.id)), "v6.5 with partner rates, the physician network, payment in full at the first visit, a 5% founding discount and the ATRON fee waived."],
     ];
     const html = header("Versions", "Plans are JSON files: save them here, export them to the repository, share them as a link",
       `<button class="ui-btn" id="share">Copy share link</button><button class="ui-btn" id="export">Export JSON</button><label class="ui-btn" style="display:inline-flex;align-items:center">Import JSON<input type="file" id="import" accept="application/json,.json" hidden></label><button class="ui-btn primary" id="save">Save version</button>`)
@@ -1010,12 +1027,12 @@
         <section class="ui-panel"><h2>Saved in this browser</h2><div class="body">${vs.length ? vs.map((v, i) => `<div class="ui-list-row"><div>${esc(v.name)}<div class="meta">${fmtDate(v.at)} · funding ${kusd(M.compute(v.A).funding)}</div></div><div class="ui-actions"><button class="ui-btn small" data-load="${i}">Load</button><button class="ui-btn small ghost" data-del="${i}">Delete</button></div></div>`).join("") : `<div class="ui-empty">No saved versions yet. Save version keeps the current plan in this browser.</div>`}</div></section>
         <section class="ui-panel"><h2>How to work with plans</h2><div class="body" style="display:grid;gap:6px">
           <div>1. Change inputs on any page; results update everywhere. The draft stays in this browser.</div>
-          <div>2. Save version to keep a named copy here, or Copy share link to send the plan: the link carries only the inputs that differ from v6.4.</div>
+          <div>2. Save version to keep a named copy here, or Copy share link to send the plan: the link carries only the inputs that differ from v6.5.</div>
           <div>3. To make a plan official for everyone, Export JSON and commit it to <code>plan/data/</code> in the repository; git keeps the history.</div>
           <div>4. Levers for the Funding page live in <code>plan/data/levers.json</code>.</div>
         </div></section>
       </div>
-      <section class="ui-panel"><h2>Changes from v6.4</h2><div class="sub">${esc(S.name)} · ${d.length} input${d.length === 1 ? "" : "s"}</div><div class="body">${d.length ? table(["Input", "v5", "Now"], d.map(([k, now, was]) => ({ cells: [esc(labelOf(k)), fmtVal(k, was), fmtVal(k, now)] }))) : `<div class="ui-empty">The current plan is the v6.4 plan.</div>`}</div></section></div>`;
+      <section class="ui-panel"><h2>Changes from v6.5</h2><div class="sub">${esc(S.name)} · ${d.length} input${d.length === 1 ? "" : "s"}</div><div class="body">${d.length ? table(["Input", "v5", "Now"], d.map(([k, now, was]) => ({ cells: [esc(labelOf(k)), fmtVal(k, was), fmtVal(k, now)] }))) : `<div class="ui-empty">The current plan is the v6.5 plan.</div>`}</div></section></div>`;
     return [html, () => {
       document.querySelectorAll("[data-preset]").forEach((b) => (b.onclick = () => { const p = presets[+b.dataset.preset]; setA(p[1](), p[0]); render(); toast(p[0] + " loaded."); }));
       document.querySelectorAll("[data-load]").forEach((b) => (b.onclick = () => { const v = versions()[+b.dataset.load]; setA(v.A, v.name); render(); toast(v.name + " loaded."); }));
@@ -1063,15 +1080,15 @@
   window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => render(true), 150); });
   window.addEventListener("hashchange", () => render());
 
-  Promise.all(["data/v5.json", "data/v6.json", "data/levers.json", "data/scenarios.json", "data/report.json"].map((u) => fetch(u + "?v=79").then((r) => r.json())))
+  Promise.all(["data/v5.json", "data/v6.json", "data/levers.json", "data/scenarios.json", "data/report.json"].map((u) => fetch(u + "?v=81").then((r) => r.json())))
     .then(([v5, v6, lv, sc, rp]) => {
       S.ref = v6; S.v5 = v5; S.v6 = v6; S.scenDefs = sc; S.levers = lv.levers; S.report = rp; S.refR = M.compute(v6);
       if (!readShare()) {
         let draft = null;
         try { draft = JSON.parse(localStorage.getItem(LS_DRAFT) || "null"); } catch (e) { draft = null; }
-        if (draft && draft.d) { S.A = withChanges(draft.d); S.name = draft.d.length ? draft.name : "v6.4 plan"; } else { S.A = M.clone(v6); S.name = "v6.4 plan"; }
+        if (draft && draft.d) { S.A = withChanges(draft.d); S.name = draft.d.length ? draft.name : "v6.5 plan"; } else { S.A = M.clone(v6); S.name = "v6.5 plan"; }
       }
-      try { recompute(); } catch (e) { S.A = M.clone(v6); S.name = "v6.4 plan"; recompute(); }
+      try { recompute(); } catch (e) { S.A = M.clone(v6); S.name = "v6.5 plan"; recompute(); }
       render();
     })
     .catch(() => {

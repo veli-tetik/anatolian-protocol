@@ -114,6 +114,10 @@ window.APSchema = [
     { path: "rounds.seedAmount", label: "Seed amount", kind: "usd" },
     { path: "monthly.marketingLeadMonths", label: "Marketing paid ahead of enrolment, months", kind: "int", note: "Lead spend is paid this many months before the clients it brings enrol. benchmark: median 15 days from lead to deposit, 81% within 90 days; v6 uses 3 months for a longer decision." },
   ]},
+  { id: "atron", title: "P · ATRON platform", fields: [
+    { path: "atron.increase", label: "ATRON fee increase per year (USD terms)", kind: "pct", note: "Applies to the platform base fee and the per-client fee. 0% = flat in dollars; the fees are USD licence fees, so the Türkiye cost index does not apply." },
+    { path: "atron.setupToEquity", label: "Set-up balance converted to equity in ATRON", kind: "usd", note: "Not cash: shown on the ATRON table only. The cash part is set by the set-up balance paid in year 2 (G · One-off set-up)." },
+  ]},
   { id: "logic", title: "I · Model rules", fields: [
     { path: "logic.funnelStages", label: "Funnel in stages: lead → deposit → first visit", kind: "bool", note: "On: conversion is lead to deposit, cancellations remove deposits, lead spend = leads × cost per lead. Off: as the Excel v5 workbook, where spend was leads × cost ÷ (1 − cancellations)." },
     { path: "logic.wholeClients", label: "Count clients in whole numbers", kind: "bool", note: "On: clients, renewals, visits and leads are whole numbers, split over the six packages. Off: fractional clients, exactly as the Excel v5 workbook." },

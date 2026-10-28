@@ -1,7 +1,7 @@
 {
   "meta": {
-    "name": "v6.4 plan",
-    "note": "v6.2 with payment per visit (deposit at sale; before each visit the share for that visit, front-loaded: Annual 100%, Summer–Winter 60/40, Seasonal 50/25/25 of the rest), two rounds only (a $200k pre-seed and a $500k seed at the end of month 9) and a lighter pilot year so the pre-seed reaches the seed with the 25% buffer: Plus International partner rates (hospital, physicians, hotels, clinical lead, legal), a 5% founding-cohort discount and the ATRON platform fee waived in year 1 (set-up balance to equity). A slimmer care team: care coordinators 1 per 60 active clients (at least 1), dietitians and coaches 1 per 120, concierges 1 per 250 visits. 28/10/2026. All amounts USD, excl. VAT."
+    "name": "v6.5 plan",
+    "note": "v6.2 with payment per visit (deposit at sale; before each visit the share for that visit, front-loaded: Annual 100%, Summer–Winter 60/40, Seasonal 50/25/25 of the rest), two rounds only (a $200k pre-seed and a $500k seed at the end of month 9) and a lighter pilot year so the pre-seed reaches the seed with the 25% buffer: Plus International partner rates (hospital, physicians, hotels, clinical lead, legal), a 5% founding-cohort discount and the ATRON platform fee waived in year 1 (set-up balance to equity). A slimmer care team: care coordinators 1 per 60 active clients (at least 1), dietitians and coaches 1 per 120, concierges 1 per 250 visits. ATRON platform fees are USD licence fees, flat in dollars (no Türkiye cost inflation); the $40k set-up balance is converted to equity in ATRON. 28/10/2026. All amounts USD, excl. VAT."
   },
   "prices": {
     "annual": [
@@ -528,5 +528,9 @@
     "preSeedAmount": 200000,
     "seedMonth": 9,
     "seedAmount": 500000
+  },
+  "atron": {
+    "increase": 0,
+    "setupToEquity": 40000
   }
 }

@@ -1,6 +1,6 @@
 // Regression check: the engine must reproduce the Excel workbooks.
 //   node plan/tools/check.js
-// v5: Anatolian_Protocol_PL_Feasibility_v5.xlsx; v6.2: …_v6.2.xlsx (inputs in v62_inputs.json); v6.3: …_v6.3.xlsx (inputs in v63_inputs.json); v6.4: …_v6.4.xlsx (the current plan, data/v6.json).
+// v5: Anatolian_Protocol_PL_Feasibility_v5.xlsx; v6.2: …_v6.2.xlsx (inputs in v62_inputs.json); v6.3: …_v6.3.xlsx (inputs in v63_inputs.json); v6.4: …_v6.4.xlsx (inputs in v64_inputs.json); v6.5: …_v6.5.xlsx (the current plan, data/v6.json).
 // Both workbooks work with fractional clients, so whole-client rounding is switched off here.
 const path = require("path");
 const M = require(path.join(__dirname, "../js/model.js"));
@@ -58,7 +58,7 @@ const ok63 = run("v6.3", "v63_inputs.json", "excel_v63_values.json", (R, X, chk)
   X.cumAfter.forEach((v, i) => chk(`monthly.cumAfter[M${i + 1}]`, R.monthly.rows[i].cumAfter, v));
 });
 
-const ok64 = run("v6.4", "../data/v6.json", "excel_v64_values.json", (R, X, chk) => {
+const ok64 = run("v6.4", "v64_inputs.json", "excel_v64_values.json", (R, X, chk) => {
   const B = R.scen.base;
   for (const [k, v] of Object.entries(X.years)) v.forEach((x, i) => chk(`${k}[Y${i + 1}]`, B.years[i][k], x));
   chk("cash need", R.funding, X.funding);
@@ -67,4 +67,13 @@ const ok64 = run("v6.4", "../data/v6.json", "excel_v64_values.json", (R, X, chk)
   X.cumAfter.forEach((v, i) => chk(`monthly.cumAfter[M${i + 1}]`, R.monthly.rows[i].cumAfter, v));
 });
 
-if (!ok5 || !ok62 || !ok63 || !ok64) process.exit(1);
+const ok65 = run("v6.5", "../data/v6.json", "excel_v65_values.json", (R, X, chk) => {
+  const B = R.scen.base;
+  for (const [k, v] of Object.entries(X.years)) v.forEach((x, i) => chk(`${k}[Y${i + 1}]`, B.years[i][k], x));
+  chk("cash need", R.funding, X.funding);
+  chk("monthly.raise", R.monthly.raise, X.raiseM);
+  chk("rounds.preNeeded", R.rounds.preNeeded, X.preNeeded);
+  X.cumAfter.forEach((v, i) => chk(`monthly.cumAfter[M${i + 1}]`, R.monthly.rows[i].cumAfter, v));
+});
+
+if (!ok5 || !ok62 || !ok63 || !ok64 || !ok65) process.exit(1);

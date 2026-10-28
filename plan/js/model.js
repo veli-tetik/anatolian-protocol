@@ -86,7 +86,7 @@
   // Partner volumes for a year's programme years by package: counts (hospital days, hotel nights, physician hours…)
   // and what they cost, at the year's cost level (k = cost index × partner cost multiplier × refund factor).
   // The USD lines add up to the year's partner delivery on a booked basis (programme years started in the year).
-  function partnerVolumes(E, UE, py, k) {
+  function partnerVolumes(E, UE, py, k, kAtron) {
     const D = E.delivery, hd = 1 - D.hotelDiscount;
     const v = { hospitalDays: 0, hotelNights: 0, regionalBlocks: 0, visits: 0, physicianHours: 0, homeDraws: 0, boxMonths: 0 };
     const usd = { hospital: 0, hotels: 0, regional: 0, experiences: 0, transfers: 0, insurance: 0, physicians: 0, draws: 0, telehealth: 0, box: 0, platform: 0, support: 0, other: 0 };
@@ -105,7 +105,7 @@
       usd.physicians += n * c.physician; usd.draws += n * c.draws; usd.telehealth += n * c.tele; usd.box += n * c.box;
       usd.platform += n * c.platform; usd.support += n * c.support; usd.other += n * (c.report + c.wear);
     });
-    for (const key of Object.keys(usd)) usd[key] *= k;
+    for (const key of Object.keys(usd)) usd[key] *= key === "platform" ? kAtron : k;
     return { volumes: v, usd, total: sum(Object.values(usd)) };
   }
 
@@ -240,11 +240,15 @@
       r.deliveryBase = dot(r.pyByPkg, "delivery");          // partner delivery at year-1 prices
       r.firstAvg = r.programYears ? dot(r.pyByPkg, "first") / r.programYears : W.first;
       r.deliveryAvg = r.programYears ? r.deliveryBase / r.programYears : W.delivery;
+      r.platformBase = dot(r.pyByPkg, "platform");          // ATRON per-client fees inside partner delivery
       r.addonBuyers = n(r.programYears * E.addons.buyShare);
       r.expCompanions = n(r.visits * E.addons.expCompanionsPerVisit);
       r.priceIdx = Math.pow(1 + E.prices.listIncrease, yr - 1);
       r.costIdx = prev ? prev.costIdx * (1 + F.inflation[i]) : 1;
-      r.partners = partnerVolumes(E, UE, r.pyByPkg, r.costIdx * S.partnerCost * wr);
+      r.atronIdx = E.atron ? Math.pow(1 + (E.atron.increase || 0), yr - 1) : r.costIdx;
+      // partner delivery at this year's prices: the ATRON per-client fee at its own index, the rest at the cost index
+      r.deliveryAt = (r.deliveryBase - r.platformBase) * r.costIdx + r.platformBase * r.atronIdx;
+      r.partners = partnerVolumes(E, UE, r.pyByPkg, r.costIdx * S.partnerCost * wr, r.atronIdx * S.partnerCost * wr);
 
       // bookings
       const compShare = r.newClients ? r.companions / r.newClients : 0;
@@ -255,7 +259,7 @@
       r.bookings = r.bNew + r.bRenew + r.bAddon + r.bExpComp;
       r.refunds = -fn.withdraw * fn.refund * (r.bNew + r.bRenew);
 
-      const p = prev || { bNew: 0, bRenew: 0, refunds: 0, bAddon: 0, bExpComp: 0, programYears: 0, costIdx: 0, visits: 0, deliveryBase: 0, expCompanions: 0 };
+      const p = prev || { bNew: 0, bRenew: 0, refunds: 0, bAddon: 0, bExpComp: 0, programYears: 0, costIdx: 0, visits: 0, deliveryBase: 0, deliveryAt: 0, expCompanions: 0 };
       r.progRevenue = mid * (r.bNew + r.bRenew + r.refunds) + (1 - mid) * (p.bNew + p.bRenew + p.refunds);
       r.addonRevenue = mid * (r.bAddon + r.bExpComp) + (1 - mid) * (p.bAddon + p.bExpComp);
       // deposits of clients who cancel before the first visit are kept
@@ -283,7 +287,7 @@
       }
 
       // cost of service
-      r.partnerDelivery = (mid * r.deliveryBase * r.costIdx + (1 - mid) * p.deliveryBase * p.costIdx) * S.partnerCost * wr;
+      r.partnerDelivery = (mid * r.deliveryAt + (1 - mid) * p.deliveryAt) * S.partnerCost * wr;
       r.addonDelivery = mid * (r.bAddon * (1 - E.addons.margin) + r.expCompanions * E.addons.expCompanionCost * r.costIdx)
         + (1 - mid) * (p.bAddon * (1 - E.addons.margin) + p.expCompanions * E.addons.expCompanionCost * p.costIdx);
       r.processing = r.revenue * E.addons.processing;
@@ -306,7 +310,7 @@
       r.legal = O.legal * r.costIdx + Math.max(0, activeCountries - 1) * E.countries.running * r.costIdx;
       r.insurance = O.insurance * r.costIdx;
       r.accounting = O.accounting * r.costIdx;
-      r.platformFee = O.platformFee * 12 * r.costIdx * (pilot ? O.platformFeeY1 : 1);
+      r.platformFee = O.platformFee * 12 * r.atronIdx * (pilot ? O.platformFeeY1 : 1);
       r.travel = O.travel * r.costIdx;
       r.inKindItems = {};
       for (const k of ["office", "legal", "insurance", "accounting", "platformFee", "travel", "brand"]) {
@@ -358,7 +362,11 @@
         r.uN = uN; r.uR = uR;
       } else
       r.cashIn = (r.bookings + r.refunds) * (up + (1 - up) * mid) + (p.bookings !== undefined ? (p.bookings + p.refunds) : 0) * (1 - up) * (1 - mid);
-      r.timing = (F.partnerUpfront - mid) * (r.deliveryBase * r.costIdx - p.deliveryBase * p.costIdx) * S.partnerCost * wr;
+      r.timing = (F.partnerUpfront - mid) * (r.deliveryAt - p.deliveryAt) * S.partnerCost * wr;
+      // what ATRON receives: base fee, per-client fees (booked), set-up; the set-up balance converted to equity is not cash
+      r.atron = { base: r.platformFee, perClient: r.partners.usd.platform, setup: pilot && !ikItems.has("setup.platform") ? E.setup.platform : 0,
+        equity: yr === 2 && E.atron ? E.atron.setupToEquity || 0 : 0 };
+      r.atron.total = r.atron.base + r.atron.perClient + r.atron.setup;
       r.cashOut = r.revenue - r.netProfit + r.timing;
       r.netCash = r.cashIn - r.cashOut;
       cumCash += r.netCash;
@@ -473,7 +481,8 @@
       r.visits = r.firstVisits + r.laterVisits;
       let win = 0; for (let k = Math.max(0, m - 11); k < m; k++) win += rows[k].started;
       win += r.started;
-      r.restYear = win * (yr.deliveryAvg - yr.firstAvg) / 12 * pc;
+      const platAvg = yr.programYears ? yr.platformBase / yr.programYears : 0;
+      r.restYear = win * ((yr.deliveryAvg - yr.firstAvg - platAvg) * yr.costIdx + platAvg * yr.atronIdx) / 12 * S.partnerCost * wr;
       // lead spend is paid L months before the clients it brings enrol; referral commission at enrolment
       const ahead = Y[Math.floor((m + L) / 12)];
       const perLead = ahead.acquisition / Math.max(ahead.newClients, 0.0001);
