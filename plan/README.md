@@ -15,10 +15,12 @@ Published with GitHub Pages at `/plan/` next to the presentation.
 | Report | The investor presentation (P&L feasibility) generated from the loaded plan: A4 pages, phone column and 16:9 slides, with Print for the A4 pages |
 | Assumptions | Every input (sections A–L and the team), changes highlighted against v5 |
 | Unit economics | One client per package and the weighted average |
-| P&L | Five-year P&L, cash and funding per scenario; CSV export |
+| P&L | Five-year P&L, cash and funding; tax loss carry-forward, support base; the bridge from net profit to cash; CSV export |
 | Monthly cash | First 36 months, the low point that sets the raise; pilot cohort timing |
 | Partners | Operator + hospital and physician network switches, what each takes off, and the staff and costs Plus International carries in kind |
+| Clients | New, renewing and programme years by package; renewals by programme year (the loss curve) |
 | Team | Headcount and cost by role and year, company payroll against staff carried in kind by Plus International |
+| Operations | Volumes and spend with partners by year (hospital days, hotel nights, physician hours, labs, boxes); visits and hotel nights month by month |
 | Checks | Model rules every input must meet (errors) and results worth a second look (warnings) |
 | Versions | Starting points, saved versions, JSON export/import, share links, change list |
 

@@ -83,6 +83,32 @@
     return p;
   }
 
+  // Partner volumes for a year's programme years by package: counts (hospital days, hotel nights, physician hours…)
+  // and what they cost, at the year's cost level (k = cost index × partner cost multiplier × refund factor).
+  // The USD lines add up to the year's partner delivery on a booked basis (programme years started in the year).
+  function partnerVolumes(E, UE, py, k) {
+    const D = E.delivery, hd = 1 - D.hotelDiscount;
+    const v = { hospitalDays: 0, hotelNights: 0, regionalBlocks: 0, visits: 0, physicianHours: 0, homeDraws: 0, boxMonths: 0 };
+    const usd = { hospital: 0, hotels: 0, regional: 0, experiences: 0, transfers: 0, insurance: 0, physicians: 0, draws: 0, telehealth: 0, box: 0, platform: 0, support: 0, other: 0 };
+    UE.cols.forEach((c, j) => {
+      const n = py[j], l = j % 2, later = c.visits - 1;
+      if (!n) return;
+      v.hospitalDays += n; v.visits += n * c.visits; v.regionalBlocks += n * later;
+      v.hotelNights += n * (D.firstNights[l] + later * D.laterNights[l]);
+      v.physicianHours += n * D.physicianHours[l]; v.homeDraws += n * (D.homeDrawsPerYear - c.visits); v.boxMonths += n * 12;
+      usd.hospital += n * D.hospitalDay[l];
+      usd.hotels += n * (D.firstNights[l] * D.firstRate[l] + later * D.laterNights[l] * D.laterRate[l]) * hd;
+      usd.regional += n * later * D.laterBlock[l];
+      usd.experiences += n * (D.firstExperiences[l] + later * D.laterExperiences[l]);
+      usd.transfers += n * (D.firstTransfers[l] + later * D.laterTransfers[l]);
+      usd.insurance += n * c.visits * D.insurance[l];
+      usd.physicians += n * c.physician; usd.draws += n * c.draws; usd.telehealth += n * c.tele; usd.box += n * c.box;
+      usd.platform += n * c.platform; usd.support += n * c.support; usd.other += n * (c.report + c.wear);
+    });
+    for (const key of Object.keys(usd)) usd[key] *= k;
+    return { volumes: v, usd, total: sum(Object.values(usd)) };
+  }
+
   // Partner case: switch groups in, apply their lever values ("Used now" column).
   function resolve(A) {
     const E = clone(A);
@@ -218,6 +244,7 @@
       r.expCompanions = n(r.visits * E.addons.expCompanionsPerVisit);
       r.priceIdx = Math.pow(1 + E.prices.listIncrease, yr - 1);
       r.costIdx = prev ? prev.costIdx * (1 + F.inflation[i]) : 1;
+      r.partners = partnerVolumes(E, UE, r.pyByPkg, r.costIdx * S.partnerCost * wr);
 
       // bookings
       const compShare = r.newClients ? r.companions / r.newClients : 0;
@@ -433,6 +460,17 @@
       r.cashIn = r.enrolPay + r.balance + r.instal + r.addons;
       const pc = yr.costIdx * S.partnerCost * wr;
       r.firstVisit = r.started * yr.firstAvg * pc;
+      // visit load: a package with v visits comes back every 12 / v months; the mix gives the share of each package
+      r.firstVisits = r.started; r.laterVisits = 0; r.hotelNights = 0;
+      UE.cols.forEach((c, j) => {
+        const l = j % 2, D = E.delivery;
+        r.hotelNights += c.share * r.started * D.firstNights[l];
+        for (let q = 1; q < c.visits; q++) {
+          const back = m - Math.round(q * 12 / c.visits), from = back >= 0 ? rows[back].started : 0;
+          r.laterVisits += c.share * from; r.hotelNights += c.share * from * D.laterNights[l];
+        }
+      });
+      r.visits = r.firstVisits + r.laterVisits;
       let win = 0; for (let k = Math.max(0, m - 11); k < m; k++) win += rows[k].started;
       win += r.started;
       r.restYear = win * (yr.deliveryAvg - yr.firstAvg) / 12 * pc;

@@ -164,7 +164,7 @@
   const PAGES = [
     { group: "Plan", items: [["overview", "Overview"], ["rounds", "Funding rounds"], ["funding", "Cash levers"], ["scenarios", "Scenarios"], ["sensitivity", "Sensitivity"]] },
     { group: "Report", items: [["rpackages", "Packages and price"], ["reconomics", "Client economics"], ["rgrowth", "Growth and profit"], ["rcash", "Cash and funding"], ["rcases", "Business cases"], ["rmust", "What must be true"], ["report", "Document"]] },
-    { group: "Model", items: [["assumptions", "Assumptions"], ["unit", "Unit economics"], ["pnl", "P&L"], ["team", "Team"], ["cash", "Monthly cash"], ["partners", "Partners"], ["checks", "Checks"]] },
+    { group: "Model", items: [["assumptions", "Assumptions"], ["unit", "Unit economics"], ["clients", "Clients"], ["pnl", "P&L"], ["team", "Team"], ["operations", "Operations"], ["cash", "Monthly cash"], ["partners", "Partners"], ["checks", "Checks"]] },
     { group: "Work", items: [["versions", "Versions"]] },
   ];
   function route() { return (location.hash.match(/^#\/(\w+)/) || [])[1] || "overview"; }
@@ -689,6 +689,90 @@
     }];
   };
 
+  // Clients by package and by programme year (the renewal loss curve).
+  P.clients = () => {
+    const B = S.R.scen.base, Y = B.years, U = S.R.UE.cols, base = S.A.scenarios.base;
+    const pk = (c) => c.name.replace(" · ", " ");
+    const byPkg = (k) => U.map((c, j) => ({ cells: [pk(c), ...Y.map((y) => num(y[k][j]))] }));
+    const value = U.map((c, j) => ({ cells: [pk(c), ...Y.map((y) => kusd(y.pyByPkg[j] * c.price * y.priceIdx))] }));
+    const share = (j, y) => (y.programYears ? y.pyByPkg[j] / y.programYears : 0);
+    const r2 = base.renewal, r3 = r2 * S.A.retention.y3, r4 = r3 * S.A.retention.y4;
+    const html = header("Clients", "New, renewing and programme years by package · renewals by programme year · base case")
+      + checksBanner()
+      + `<div class="ui-tiles">${tile("New clients, year 1 → year 5", `${num(Y[0].newClients)} → ${num(Y[4].newClients)}`, "Incl. companions with their own protocol", "focus")}
+        ${tile("Programme years sold, year 5", num(Y[4].programYears), `${num(Y[4].renewing)} of them renewals (${pct(Y[4].renewing / Y[4].programYears)})`)}
+        ${tile("Of 100 new clients", `${num(100 * r2)} · ${num(100 * r3)} · ${num(100 * r4, 1)}`, "Still in the programme in year 2 · 3 · 4")}
+        ${tile("Premium share, year 5", pct(U.reduce((a, c, j) => a + (j % 2 ? share(j, Y[4]) : 0), 0)), "Of programme years")}</div>
+      <div class="ui-grid">
+        <section class="ui-panel"><h2>Programme years by package</h2><div class="sub">New and renewing clients together</div><div class="body"><div id="ch-pkg"></div></div></section>
+        <section class="ui-panel"><h2>Renewals by programme year</h2><div class="sub">Clients in their 2nd, 3rd and 4th or later year</div><div class="body"><div id="ch-ren"></div></div></section>
+      </div>
+      <section class="ui-panel" style="margin-top:16px"><h2>Clients by package</h2><div class="sub">Whole clients split over the six packages by the mix (Assumptions, B)</div><div class="body">${table(["Package", ...YRS], [
+        { group: "New clients" }, ...byPkg("newByPkg"), { cells: ["New clients", ...Y.map((y) => num(y.newClients))], cls: "total" },
+        { group: "Renewing clients" }, ...byPkg("renewByPkg"), { cells: ["Renewing clients", ...Y.map((y) => num(y.renewing))], cls: "total" },
+        { group: "Programme years" }, ...byPkg("pyByPkg"), { cells: ["Programme years", ...Y.map((y) => num(y.programYears))], cls: "key" },
+        { group: "Programme years at list price (before discounts)" }, ...value,
+      ])}</div></section>
+      <section class="ui-panel"><h2>The renewal loss curve</h2><div class="sub">Renewal into year 2 ${pct(r2)}, into year 3 ${pct(S.A.retention.y3)} of those, into year 4 and later ${pct(S.A.retention.y4)} a year</div><div class="body">${table(["Clients", ...YRS], [
+        { cells: ["In their first programme year (new)", ...Y.map((y) => num(y.newClients))] },
+        { cells: ["In their 2nd programme year", ...Y.map((y) => num(y.renew2 || 0))] },
+        { cells: ["In their 3rd programme year", ...Y.map((y) => num(y.renew3 || 0))] },
+        { cells: ["In their 4th or later programme year", ...Y.map((y) => num(y.renew4 || 0))] },
+        { cells: ["Programme years sold", ...Y.map((y) => num(y.programYears))], cls: "total" },
+        { cells: ["Active clients (average in care)", ...Y.map((y) => num(y.active))], cls: "minor" },
+      ])}</div></section>`;
+    return [html, () => {
+      const groups = [["Annual", [0, 1]], ["Summer–Winter", [2, 3]], ["Seasonal", [4, 5]]];
+      C.bars($("#ch-pkg"), { labels: YRS, series: groups.map(([n, js], i) => ({ name: n, c: [1, 2, 3][i], values: Y.map((y) => js.reduce((a, j) => a + y.pyByPkg[j], 0)) })), fmt: (v) => num(v) });
+      C.bars($("#ch-ren"), { labels: YRS, series: [{ name: "Year 2", c: 1, values: Y.map((y) => y.renew2 || 0) }, { name: "Year 3", c: 2, values: Y.map((y) => y.renew3 || 0) }, { name: "Year 4+", c: 3, values: Y.map((y) => y.renew4 || 0) }], fmt: (v) => num(v) });
+    }];
+  };
+
+  // Operations: what goes to the partners each year, and the visit load month by month.
+  P.operations = () => {
+    const Y = S.R.scen.base.years, mo = S.R.monthly.rows;
+    const vol = (k, d = 0) => Y.map((y) => num(y.partners.volumes[k], d));
+    const spend = (k) => Y.map((y) => usd(y.partners.usd[k]));
+    const peak = mo.reduce((a, r) => (r.visits > a.visits ? r : a), mo[0]);
+    const html = header("Operations", "Partner volumes and spend by year · visits month by month · base case")
+      + checksBanner()
+      + `<div class="ui-tiles">${tile("Paid to partners, year 5", kusd(Y[4].partners.total), `${pct(Y[4].partners.total / (Y[4].bNew + Y[4].bRenew))} of programme bookings`, "focus")}
+        ${tile("Hospital measurement days, year 5", num(Y[4].partners.volumes.hospitalDays), "One per programme year")}
+        ${tile("Hotel nights, year 5", num(Y[4].partners.volumes.hotelNights), `${num(Y[4].partners.volumes.visits)} visits to Türkiye`)}
+        ${tile("Busiest month, first 36", `M${peak.m}`, `${num(peak.visits, 1)} visits, ${num(peak.hotelNights)} hotel nights`)}</div>
+      <section class="ui-panel"><h2>Volumes with partners</h2><div class="sub">For the programme years started in each year (booked basis): what to negotiate with the hospital, hotels and labs</div><div class="body">${table(["Volume", ...YRS], [
+        { cells: ["Programme years started", ...Y.map((y) => num(y.programYears))], cls: "total" },
+        { cells: ["Hospital measurement days (first visits)", ...vol("hospitalDays")] },
+        { cells: ["Regional measurement blocks (later visits)", ...vol("regionalBlocks")] },
+        { cells: ["Visits to Türkiye", ...vol("visits")] },
+        { cells: ["Hotel nights", ...vol("hotelNights")] },
+        { cells: ["Programme physician hours", ...vol("physicianHours")] },
+        { cells: ["Home-country blood draws", ...vol("homeDraws")] },
+        { cells: ["Monthly boxes shipped", ...vol("boxMonths")] },
+      ])}</div></section>
+      <section class="ui-panel"><h2>Spend with partners</h2><div class="sub">USD at each year's cost level (Türkiye cost inflation, partner cost multiplier, refunds); adds up to partner delivery on a booked basis</div><div class="body">${table(["USD", ...YRS], [
+        { cells: ["Hospital measurement day", ...spend("hospital")] }, { cells: ["Hotels (after the negotiated discount)", ...spend("hotels")] },
+        { cells: ["Regional measurement blocks", ...spend("regional")] }, { cells: ["Experiences and meals", ...spend("experiences")] },
+        { cells: ["Transfers", ...spend("transfers")] }, { cells: ["Travel medical insurance", ...spend("insurance")] },
+        { cells: ["Programme physicians", ...spend("physicians")] }, { cells: ["Home-country blood draws", ...spend("draws")] },
+        { cells: ["Home-country physician / telehealth", ...spend("telehealth")] }, { cells: ["Monthly box and starter pack", ...spend("box")] },
+        { cells: ["Technology platform (per client)", ...spend("platform")] }, { cells: ["Team travel and interpreters", ...spend("support")] },
+        { cells: ["Year-end report and wearables", ...spend("other")] },
+        { cells: ["Paid to partners", ...Y.map((y) => usd(y.partners.total))], cls: "total" },
+        { cells: ["Share of programme bookings (same basis)", ...Y.map((y) => pct(y.bNew + y.bRenew ? y.partners.total / (y.bNew + y.bRenew) : 0))], cls: "minor" },
+      ])}</div></section>
+      <section class="ui-panel"><h2>Visits month by month</h2><div class="sub">First visits when clients start; later visits by the package mix (Summer–Winter 6 months on, Seasonal 4 and 8). Counted in the month they happen, so yearly sums differ from the booked volumes above.</div><div class="body"><div id="ch-visits"></div>
+        ${table(["Month", ...mo.map((r) => "M" + r.m)], [
+          { cells: ["First visits", ...mo.map((r) => num(r.firstVisits, 1))] },
+          { cells: ["Later visits", ...mo.map((r) => num(r.laterVisits, 1))] },
+          { cells: ["Visits", ...mo.map((r) => num(r.visits, 1))], cls: "total" },
+          { cells: ["Hotel nights", ...mo.map((r) => num(r.hotelNights))], cls: "minor" },
+        ])}</div></section>`;
+    return [html, () => {
+      C.bars($("#ch-visits"), { labels: mo.map((r) => "M" + r.m), series: [{ name: "First visits", c: 1, values: mo.map((r) => r.firstVisits) }, { name: "Later visits", c: 3, values: mo.map((r) => r.laterVisits) }], fmt: (v) => num(v, 1) });
+    }];
+  };
+
   P.unit = () => {
     const U = S.R.UE, cols = [...U.cols, U.w];
     const r = (lab, k, f = usd, cls) => ({ cells: [lab, ...cols.map((c) => f(c[k]))], cls });
@@ -717,7 +801,7 @@
     return [
       { group: "Clients and activity" },
       row("New clients enrolled", (y) => num(y.newClients, 0)), row("Renewing clients", (y) => num(y.renewing, 0)), row("Program years sold", (y) => num(y.programYears, 0)),
-      row("Active clients (average in care)", (y) => num(y.active, 0)), row("Visits to Türkiye", (y) => num(y.visits, 0)), row("Leads from paid marketing", (y) => num(y.leads, 0), "minor"),
+      row("Active clients (average in care)", (y) => num(y.active, 0)), row("Clients buying clinical add-ons", (y) => num(y.addonBuyers, 0), "minor"), row("Experience-only companions", (y) => num(y.expCompanions, 0), "minor"), row("Visits to Türkiye", (y) => num(y.visits, 0)), row("Leads from paid marketing", (y) => num(y.leads, 0), "minor"),
       ...(S.A.logic && S.A.logic.funnelStages ? [row("Deposits from those leads", (y) => num(y.deposits, 0), "minor"), row("Deposits cancelled before the first visit", (y) => num(y.cancelled, 0), "minor"),
         row("Clients started from marketing", (y) => num(y.marketing, 0), "minor"), row("Clients through referral partners", (y) => num(y.referred, 0), "minor"), row("Companions with own protocol", (y) => num(y.companions, 0), "minor"),
         row("Lead spend per started marketing client", (y) => usd(y.marketing ? y.acquisition / y.marketing : 0), "minor")] : []),
@@ -735,7 +819,8 @@
       row("Technology platform base fee", (y) => usd(-y.platformFee)), row("Team travel, audits, events", (y) => usd(-y.travel)),
       row("One-off set-up and new countries", (y) => usd(-y.setup)), row("Contingency", (y) => usd(-y.contingency)), row("Operating expenses", (y) => usd(-y.opex), "total"),
       ...(Y.some((y) => y.marketingSupport) ? [row("Marketing support received (Ministry of Trade)", u("marketingSupport"))] : []),
-      row("EBITDA", u("ebitda"), "key"), row("EBITDA margin", (y) => pct(y.ebitdaMargin), "minor"), row("Corporate tax", (y) => usd(-y.tax)), row("Net profit", u("netProfit"), "total"),
+      ...(Y.some((y) => y.marketingSupport) ? [row("Marketing spend eligible for support", u("mktEligible"), "minor")] : []),
+      row("EBITDA", u("ebitda"), "key"), row("EBITDA margin", (y) => pct(y.ebitdaMargin), "minor"), row("Taxable profit after loss offset", u("taxable"), "minor"), row("Tax losses carried forward (year end)", u("lossCF"), "minor"), row("Corporate tax", (y) => usd(-y.tax)), row("Net profit", u("netProfit"), "total"),
       { group: "Team" },
       row("Total team (FTE)", (y) => num(y.fteTotal)),
       ...inKindRows(p),
@@ -762,12 +847,34 @@
       row("Total carried in kind", (y) => usd(y.inKind), "total"),
     ];
   }
+  // From net profit to cash: clients pay ahead of the service, partners and marketing are paid ahead too, part of the
+  // prepaid cash is held in reserve, and the two rounds come in.
+  function cashBridge(p) {
+    const Y = p.years, F = S.A.finance, Rd = S.R.rounds, seedYear = Math.floor(Rd.seedMonth / 12);
+    const ahead = (y) => y.cashIn - y.revenue, held = (y, i) => y.unearned * F.reserve[i];
+    let cum = 0;
+    const funded = Y.map((y, i) => (cum += (i === 0 ? Rd.pre : 0) + (i === seedYear ? Rd.seed : 0)));
+    const row = (lab, f, cls) => ({ cells: [lab, ...Y.map((y, i) => usd(f(y, i)))], cls });
+    return `<section class="ui-panel"><h2>From net profit to cash</h2><div class="sub">Why cash turns positive before profit: clients pay before they are served. Year-end view; the monthly low point is on Monthly cash.</div><div class="body">${table(["USD", ...YRS], [
+      row("Net profit", (y) => y.netProfit, "total"),
+      row("+ Client cash received ahead of revenue", ahead),
+      row("− Partner payments ahead of recognition", (y) => -y.timing),
+      row("− Marketing paid ahead of the clients it brings", (y) => -(y.mktTiming || 0)),
+      row("= Net cash flow", (y) => y.netCash, "total"),
+      row("Cumulative cash before funding", (y) => y.cumCash),
+      row("− Prepaid cash held in reserve", (y, i) => -held(y, i)),
+      row("= Cumulative cash after the reserve", (y) => y.cumAfterReserve, "total"),
+      row(`+ Pre-seed and seed (cumulative)`, (y, i) => funded[i]),
+      row("= Cash after funding, before the reserve", (y, i) => y.cumCash + funded[i], "key"),
+    ])}</div></section>`;
+  }
   P.pnl = () => {
     const p = S.R.scen.base;
     const html = header("P&L", "Plan · five years · USD · business scenarios on the Scenarios page",
       `<button class="ui-btn" id="csv">Export CSV</button>`)
       + `<div class="ui-tiles">${tile("Cash need", kusd(p.raise), "Monthly cash view")}${tile("First year with positive EBITDA", yearOf(p.firstEbitda))}${tile("Five-year net profit", kusd(p.netProfit5))}${tile("Cash at end of year 5", kusd(p.cashEnd), "After funding")}</div>`
-      + `<section class="ui-panel"><div class="body">${table(["Line", ...YRS], pnlRows(p))}</div></section>`;
+      + `<section class="ui-panel"><div class="body">${table(["Line", ...YRS], pnlRows(p))}</div></section>`
+      + cashBridge(p);
     return [html, () => {
       $("#csv").onclick = () => {
         const lines = [["Line", ...YRS].join(",")];
@@ -936,7 +1043,7 @@
   window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => render(true), 150); });
   window.addEventListener("hashchange", () => render());
 
-  Promise.all(["data/v5.json", "data/v6.json", "data/levers.json", "data/scenarios.json", "data/report.json"].map((u) => fetch(u + "?v=75").then((r) => r.json())))
+  Promise.all(["data/v5.json", "data/v6.json", "data/levers.json", "data/scenarios.json", "data/report.json"].map((u) => fetch(u + "?v=77").then((r) => r.json())))
     .then(([v5, v6, lv, sc, rp]) => {
       S.ref = v6; S.v5 = v5; S.v6 = v6; S.scenDefs = sc; S.levers = lv.levers; S.report = rp; S.refR = M.compute(v6);
       if (!readShare()) {
