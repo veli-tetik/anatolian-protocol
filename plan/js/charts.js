@@ -177,5 +177,45 @@
     });
   }
 
-  window.APCharts = { bars, lines, waterfall, tornado };
+  // ---------------------------------------------------------- monthly balance: one bar per month, shaded by year,
+  // the lowest month marked and labelled, an optional reference line (e.g. the year-end view) and month marker
+  function monthBars(host, { values, labels, fmt, lowLabel, ref, marker, tip, height = 260 }) {
+    const { svg, tip: tp, W, H } = frame(host, height);
+    const nY = Math.ceil(values.length / 12);
+    legend(host, Array.from({ length: nY }, (_, k) => ({ name: "Year " + (k + 1), c: "y" + (k + 1) })).concat([{ name: "Lowest month", c: "low" }]));
+    const pad = { l: 56, r: 8, t: 18, b: 24 };
+    const all = values.concat([0], ref ? [ref.value] : []);
+    const ticks = niceTicks(Math.min(...all), Math.max(...all));
+    const lo = ticks[0], hi = ticks[ticks.length - 1];
+    const y = (v) => pad.t + (hi - v) / (hi - lo) * (H - pad.t - pad.b);
+    yAxis(svg, ticks, y, pad.l, W - pad.r, fmt);
+    const n = values.length, cw = (W - pad.l - pad.r) / n, bw = Math.max(2, cw - 2);
+    const low = values.indexOf(Math.min(...values));
+    values.forEach((v, i) => {
+      const x = pad.l + i * cw + (cw - bw) / 2;
+      el("path", { d: barPath(x, bw, y(0), y(v)), class: i === low && v < 0 ? "mlow" : "my" + (Math.floor(i / 12) + 1) }, svg);
+      if (i === 0 || (i + 1) % 6 === 0) el("text", { x: x + bw / 2, y: H - 6, "text-anchor": "middle" }, svg).textContent = labels[i];
+      const hit = el("rect", { x: pad.l + i * cw, y: pad.t, width: cw, height: H - pad.t - pad.b, class: "hit" }, svg);
+      hit.addEventListener("mousemove", (e) => {
+        const r = host.getBoundingClientRect();
+        showTip(host, tp, tip(i), e.clientX - r.left, e.clientY - r.top);
+      });
+      hit.addEventListener("mouseleave", () => { tp.hidden = true; });
+    });
+    if (values[low] < 0) {
+      const x = pad.l + low * cw + cw / 2;
+      el("text", { x, y: y(values[low]) + 14, "text-anchor": "middle", class: "lbl mlow-t" }, svg).textContent = lowLabel || fmt(values[low]);
+    }
+    if (ref) {
+      el("line", { x1: pad.l, x2: W - pad.r, y1: y(ref.value), y2: y(ref.value), class: "refline" }, svg);
+      el("text", { x: pad.l + 6, y: y(ref.value) - 5, class: "lbl" }, svg).textContent = ref.label;
+    }
+    if (marker) {
+      const x = pad.l + (marker.i + 1) * cw;
+      el("line", { x1: x, x2: x, y1: pad.t - 6, y2: H - pad.b, class: "refline" }, svg);
+      el("text", { x: x + 4, y: pad.t - 6, class: "lbl" }, svg).textContent = marker.label;
+    }
+  }
+
+  window.APCharts = { bars, lines, waterfall, tornado, monthBars };
 })();

@@ -40,7 +40,7 @@
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
   // ---------------------------------------------------------------- state
-  const S = { issues: [], ref: null, v6: null, scenDefs: { groups: [] }, holds: { conversion: "plan", referral: "plan" }, scenCache: null, A: null, name: "v6.3 plan", levers: [], pick: null, scen: "base", metric: "funding", changedOnly: false, R: null, refR: null };
+  const S = { balMode: "rounds", issues: [], ref: null, v6: null, scenDefs: { groups: [] }, holds: { conversion: "plan", referral: "plan" }, scenCache: null, A: null, name: "v6.3 plan", levers: [], pick: null, scen: "base", metric: "funding", changedOnly: false, R: null, refR: null };
 
   function flatten(A) {
     const out = {};
@@ -236,16 +236,44 @@
       </div>
       <div class="ui-grid">
         <section class="ui-panel"><h2>Revenue and EBITDA</h2><div class="sub">Base case, by year</div><div class="body"><div id="ch-rev"></div></div></section>
-        <section class="ui-panel"><h2>Cumulative cash before funding</h2><div class="sub">First 36 months, after the prepayment reserve. The low point sets the raise.</div><div class="body"><div id="ch-cash"></div></div></section>
+        ${balancePanel("ch-cash")}
       </div>
       <section class="ui-panel" style="margin-top:16px"><h2>Business scenarios</h2><div class="sub">Funding each group of cases needs, against the plan. Details and the cases themselves on the Scenarios page.</div><div class="body">${scenarioSummary()}</div></section>
       ${noGrowthPanel()}`;
     return [html, () => {
       C.bars($("#ch-rev"), { labels: YRS, series: [{ name: "Revenue", c: 1, values: B.years.map((y) => y.revenue) }, { name: "EBITDA", c: 2, values: B.years.map((y) => y.ebitda) }], fmt: axis });
-      cashChart($("#ch-cash"), R.monthly);
+      balanceChart($("#ch-cash"));
       C.bars($("#ch-ng"), { labels: YRS, series: [{ name: "Growth plan", c: 1, values: B.years.map((y) => y.ebitda) }, { name: "No growth investment", c: 2, values: R.noGrowth.years.map((y) => y.ebitda) }], fmt: axis });
     }];
   };
+  // Monthly cash balance, one bar per month, shaded by year; the lowest month in red. "rounds": with the pre-seed on
+  // day one and the seed after its month; "before": before funding, with the year-end view's low as a dashed line.
+  function balancePanel(id) {
+    const m = S.balMode;
+    return `<section class="ui-panel"><div class="ui-panel-head"><h2>Cash balance, month by month</h2>
+      <div class="ui-seg" role="group" aria-label="Cash balance view"><button data-bal="rounds" aria-pressed="${m === "rounds"}">With the rounds</button><button data-bal="before" aria-pressed="${m === "before"}">Before funding</button></div></div>
+      <div class="sub">${m === "rounds"
+        ? `Cumulative cash after the prepayment reserve, with the ${kusd(S.R.rounds.pre)} pre-seed on day one and the ${kusd(S.R.rounds.seed)} seed at the end of month ${S.R.rounds.seedMonth}. ${esc(roundsStatus().text)}.`
+        : `Cumulative cash after the prepayment reserve, before any funding. The lowest month plus the ${pct(S.A.finance.buffer)} buffer is the cash need (${kusd(S.R.funding)}).`}</div>
+      <div class="body"><div id="${id}"></div></div></section>`;
+  }
+  function balanceChart(host) {
+    const R = S.R, mo = R.monthly, Rd = R.rounds, rows = mo.rows, withRounds = S.balMode === "rounds";
+    const values = withRounds ? Rd.cash : rows.map((r) => r.cumAfter);
+    const low = values.indexOf(Math.min(...values));
+    const yearEnd = -R.scen.base.peakAfterReserve;
+    C.monthBars(host, {
+      values, labels: rows.map((r) => "M" + r.m), fmt: axis,
+      lowLabel: `${kusd(values[low])} · M${low + 1}`,
+      ref: withRounds ? null : (yearEnd < 0 ? { value: yearEnd, label: `Year-end view: ${kusd(yearEnd)}` } : null),
+      marker: withRounds ? { i: Rd.seedMonth - 1, label: `Seed ${kusd(Rd.seed)}` } : null,
+      tip: (i) => `<b>Month ${i + 1} · year ${Math.floor(i / 12) + 1}</b><div class="r"><span>Cash balance</span><span>${usd(values[i])}</span></div>`
+        + `<div class="r"><span>Net cash flow in the month</span><span>${usd(rows[i].net)}</span></div>`
+        + `<div class="r"><span>Held in reserve</span><span>${usd(rows[i].held)}</span></div>`
+        + (withRounds && i === Rd.seedMonth ? `<div class="r"><span>Seed received</span><span>${usd(Rd.seed)}</span></div>` : ""),
+    });
+    document.querySelectorAll("[data-bal]").forEach((b) => (b.onclick = () => { S.balMode = b.dataset.bal; render(true); }));
+  }
   function cashChart(host, mo, compare) {
     const rows = mo.rows;
     const series = [{ name: compare ? "Current plan" : "After reserve", c: 1, values: rows.map((r) => r.cumAfter) }];
@@ -614,9 +642,9 @@
     const months = rows.map((r) => "M" + r.m);
     const rr = (lab, k, cls) => ({ cells: [lab, ...rows.map((r) => usd(r[k]))], cls });
     const coh = S.A.monthly.y1Cohorts;
-    const html = header("Monthly cash", `Base case · first 36 months · low point month ${mo.lowAfterMonth} · raise ${kusd(mo.raise)} incl. buffer`)
-      + checksBanner() + `<div class="ui-tiles">${tile("Lowest cash, after reserve", kusd(mo.lowAfter), "Month " + mo.lowAfterMonth, "focus")}${tile("Lowest cash, before reserve", kusd(mo.lowBefore), "Month " + mo.lowMonth)}${tile("Raise on the monthly view", kusd(mo.raise), "Incl. " + pct(S.A.finance.buffer) + " buffer")}${tile("Raise on the year-end view", kusd(S.R.scen.base.peakAfterReserve * (1 + S.A.finance.buffer)), "Base case uses the larger")}</div>
-      <section class="ui-panel"><h2>Cumulative cash before funding</h2><div class="body"><div id="ch-m"></div></div></section>
+    const html = header("Monthly cash", `Base case · first 36 months · low point month ${mo.lowAfterMonth} · cash need ${kusd(mo.raise)} incl. buffer`)
+      + checksBanner() + `<div class="ui-tiles">${tile("Lowest cash, after reserve", kusd(mo.lowAfter), "Month " + mo.lowAfterMonth, "focus")}${tile("Lowest cash, before reserve", kusd(mo.lowBefore), "Month " + mo.lowMonth)}${tile("Cash need, monthly view", kusd(mo.raise), "Incl. " + pct(S.A.finance.buffer) + " buffer")}${tile("Cash need, year-end view", kusd(S.R.scen.base.peakAfterReserve * (1 + S.A.finance.buffer)), "Base case uses the larger")}</div>
+      ${balancePanel("ch-m")}
       <section class="ui-panel"><h2>Pilot cohorts</h2><div class="sub">Share of year-1 new clients enrolling in each month (total ${pct(coh.reduce((a, b) => a + b, 0))}). Set-up is paid in months 1–${S.A.monthly.setupMonths}. Years 2–3 enrol evenly.</div>
         <div class="body"><div class="ui-field"><div class="lbl">Year 1, by month · %</div><div class="inputs">${coh.map((_, i) => `<label class="ui-input-cap"><span>M${i + 1}</span>${inputHTML("monthly.y1Cohorts." + i, "pct", "narrow")}</label>`).join("")}</div></div>
         <div class="ui-field"><div class="lbl">Set-up months before launch</div><div class="inputs">${inputHTML("monthly.setupMonths", "int", "narrow")}</div></div>
@@ -624,13 +652,13 @@
       <section class="ui-panel"><h2>Month by month</h2><div class="body">${table(["Line", ...months], [
         { cells: ["New clients", ...rows.map((r) => num(r.newC, Number.isInteger(r.newC) ? 0 : 1))] }, { cells: ["Renewing clients", ...rows.map((r) => num(r.renewC, Number.isInteger(r.renewC) ? 0 : 1))] },
         { group: "Cash in" }, ...(S.A.finance.payment
-          ? [rr("Deposits at sale", "enrolPay"), rr("Paid at the first visit", "balance"), rr("Instalments", "instal")]
+          ? [rr("Deposits at sale", "enrolPay"), rr("Paid at the first visit", "balance"), rr(S.A.finance.payment.byVisit ? "Paid before later visits" : "Instalments", "instal")]
           : [rr("Payments at enrolment", "enrolPay"), rr("Balances six months later", "balance")]), rr("Add-ons and companions, net", "addons"), ...(rows.some((r) => r.support) ? [rr("Marketing support received", "support")] : []), rr("Cash in", "cashIn", "total"),
         { group: "Cash out" }, rr("Partners: first visit", "firstVisit"), rr("Partners: rest of the program year", "restYear"), rr("Acquisition and referral", "acq"),
         rr("Payment processing", "processing"), rr("Team salaries", "salaries"), rr("Brand, overheads, contingency", "overheads"), rr("Set-up and new countries", "setup"), rr("Cash out", "cashOut", "total"),
         { group: "Result" }, rr("Net cash flow", "net", "total"), rr("Cumulative cash before funding", "cum"), rr("Held in reserve", "held", "minor"), rr("Cumulative cash after the reserve", "cumAfter", "key"),
       ])}</div></section>`;
-    return [html, () => { cashChart($("#ch-m"), mo); bindInputs(); }];
+    return [html, () => { balanceChart($("#ch-m")); bindInputs(); }];
   };
 
   P.partners = () => {
@@ -768,7 +796,7 @@
   window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => render(true), 150); });
   window.addEventListener("hashchange", () => render());
 
-  Promise.all(["data/v5.json", "data/v6.json", "data/levers.json", "data/scenarios.json"].map((u) => fetch(u + "?v=63").then((r) => r.json())))
+  Promise.all(["data/v5.json", "data/v6.json", "data/levers.json", "data/scenarios.json"].map((u) => fetch(u + "?v=64").then((r) => r.json())))
     .then(([v5, v6, lv, sc]) => {
       S.ref = v6; S.v5 = v5; S.v6 = v6; S.scenDefs = sc; S.levers = lv.levers; S.refR = M.compute(v6);
       if (!readShare()) {
