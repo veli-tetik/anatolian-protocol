@@ -162,7 +162,7 @@
 
   // ---------------------------------------------------------------- shell
   const PAGES = [
-    { group: "Plan", items: [["overview", "Overview"], ["rounds", "Funding rounds"], ["funding", "Cash levers"], ["scenarios", "Scenarios"], ["sensitivity", "Sensitivity"]] },
+    { group: "Plan", items: [["overview", "Overview"], ["rounds", "Funding rounds"], ["funding", "Cash levers"], ["scenarios", "Scenarios"], ["sensitivity", "Sensitivity"], ["report", "Report"]] },
     { group: "Model", items: [["assumptions", "Assumptions"], ["unit", "Unit economics"], ["pnl", "P&L"], ["cash", "Monthly cash"], ["partners", "Partners"], ["checks", "Checks"]] },
     { group: "Work", items: [["versions", "Versions"]] },
   ];
@@ -484,6 +484,12 @@
     }];
   };
 
+  // The investor report (js/report.js): A4 pages, phone column and slides, generated from the current plan.
+  P.report = () => {
+    const rp = window.APReport.render({ A: S.A, R: S.R, name: S.name, data: S.report, M, C, kusd, usd, esc, roundsStatus, scen, IK_ITEMS });
+    return [header("Report", rp.meta, rp.actions) + checksBanner() + rp.html, rp.after];
+  };
+
   // ---------------------------------------------------------------- inputs
   function inputHTML(path, kind, cls = "") {
     const v = M.getPath(S.A, path), r = M.getPath(S.ref, path);
@@ -796,9 +802,9 @@
   window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => render(true), 150); });
   window.addEventListener("hashchange", () => render());
 
-  Promise.all(["data/v5.json", "data/v6.json", "data/levers.json", "data/scenarios.json"].map((u) => fetch(u + "?v=64").then((r) => r.json())))
-    .then(([v5, v6, lv, sc]) => {
-      S.ref = v6; S.v5 = v5; S.v6 = v6; S.scenDefs = sc; S.levers = lv.levers; S.refR = M.compute(v6);
+  Promise.all(["data/v5.json", "data/v6.json", "data/levers.json", "data/scenarios.json", "data/report.json"].map((u) => fetch(u + "?v=65").then((r) => r.json())))
+    .then(([v5, v6, lv, sc, rp]) => {
+      S.ref = v6; S.v5 = v5; S.v6 = v6; S.scenDefs = sc; S.levers = lv.levers; S.report = rp; S.refR = M.compute(v6);
       if (!readShare()) {
         let draft = null;
         try { draft = JSON.parse(localStorage.getItem(LS_DRAFT) || "null"); } catch (e) { draft = null; }

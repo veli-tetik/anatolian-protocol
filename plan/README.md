@@ -12,6 +12,7 @@ Published with GitHub Pages at `/plan/` next to the presentation.
 | Rounds | Pre-seed sized to the seed month, seed amount and month as inputs, cash after both rounds, growth options and risk cases the rounds carry |
 | Scenarios | Business scenarios: collection, conversion, lead cost, referrals and companions, renewal; each case computed in full, with a same-client-plan / same-marketing-budget switch where it matters |
 | Sensitivity | Which inputs move the funding need or five-year profit most |
+| Report | The investor presentation (P&L feasibility) generated from the loaded plan: A4 pages, phone column and 16:9 slides, with Print for the A4 pages |
 | Assumptions | Every input (sections A–L and the team), changes highlighted against v5 |
 | Unit economics | One client per package and the weighted average |
 | P&L | Five-year P&L, cash and funding per scenario; CSV export |
@@ -42,6 +43,7 @@ Published with GitHub Pages at `/plan/` next to the presentation.
 - `js/model.js` — the calculation engine, a line-for-line port of the Excel formulas, with whole-client rounding
 - `js/checks.js` — the logic checks
 - `js/app.js`, `js/charts.js`, `js/schema.js`, `css/app.css` — the interface
+- `js/report.js`, `css/report.css`, `data/report.json` — the Report page: the presentation from `web/build.py` ported to the live plan; `report.json` holds the static reference data (competitor prices, package audiences, assumption basis, sources)
 - `tools/check.js` — regression check: `node plan/tools/check.js` must print OK twice. With whole-client rounding off, the engine reproduces Excel v5 and Excel v6.2 (`Anatolian_Protocol_PL_Feasibility_v6.2.xlsx`) to within 0.000002%; the tool itself rounds people to whole numbers, so its headline figures differ slightly from the workbook
 
 ## Run locally

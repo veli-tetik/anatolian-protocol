@@ -1,0 +1,44 @@
+{
+  "note": "Static reference data for the Report page: published competitor prices, package audiences, the basis column of the assumptions table, sources and the items not in the numbers. Every figure of the plan itself comes from the loaded plan, not from here.",
+  "benchmarks": [
+    { "label": "Lanserhof · program", "price": 3400, "per": "stay" },
+    { "label": "Biograph · Core", "price": 7500, "per": "year" },
+    { "label": "Human Longevity · Exec.", "price": 8000, "per": "year" },
+    { "label": "Biograph · Black", "price": 17500, "per": "year" },
+    { "label": "Human Longevity · 100+", "price": 19000, "per": "year" },
+    { "label": "Canyon Ranch · 4 days", "price": 20000, "per": "stay" },
+    { "label": "The Estate · membership", "price": 35000, "per": "year" }
+  ],
+  "packages": {
+    "annual": "First-time clients and long-haul markets",
+    "summerWinter": "US clients replacing two holidays",
+    "seasonal": "Europe, UK and Gulf, 3–5 hours away"
+  },
+  "basis": {
+    "hospitalDay": "Executive check-ups in Istanbul list at $400–2,500",
+    "hotels": "Five-star city hotels in Istanbul; boutique hotels in the regions",
+    "physician": "Program blueprint: about seven hours per client",
+    "homeDraw": "US retail panel of 19 tests: $357",
+    "box": "Supplements, pantry, fulfilment",
+    "platform": "App and devices per client, plus a base fee",
+    "leads": "Sized for the growth plan",
+    "costPerLead": "Comparable health-tourism business: about €15 a lead for a ~€4.3k sale; stress case $150",
+    "cancel": "Deposits of clients who cancel are kept",
+    "referral": "First-year price only",
+    "renewal": "Into years 2, 3 and 4+",
+    "payment": "Benchmark: a deposit at sale, the balance on the treatment day",
+    "support": "Ministry of Trade health-tourism marketing support",
+    "inKind": "Worked out in full as a memo; not in the P&L, cash or funding",
+    "setup": "Legal, brand, platform, method, hiring",
+    "countries": "Translation, ad set-up, claims review; no local entity or counsel",
+    "inflation": "Türkiye costs in USD",
+    "rounds": "Pre-seed on day one; the seed at the end of the seed month"
+  },
+  "notInNumbers": [
+    "more clinical add-ons",
+    "corporate and family-office contracts",
+    "Türkiye trade-fair and market-report grants"
+  ],
+  "regulation": "Rules differ by source country; the core protocol depends on neither the box nor one channel.",
+  "sources": "biograph.com · humanlongevity.com · fortune.com (Jan 2026) · healingholidays.com · myturkeyadventure.com · goodlabs.com · kariyer.net · laingbuissonnews.com · benchmark health-tourism business (CRM and books, Oct 2025 – Jun 2026) · Program Blueprint v1.0."
+}
