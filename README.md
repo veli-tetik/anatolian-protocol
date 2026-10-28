@@ -1,9 +1,7 @@
 # The Anatolian Protocol — P&L feasibility
 
-Five-year P&L, cash and funding view for the program company, in three formats:
+Five-year P&L, cash and funding for the program company.
 
-- `index.html` — web page with A4, mobile and slide views (switch at the top; `#a4`, `#phone`, `#sunum` force a view)
-- `Anatolian_Protocol_PL_Feasibility_A4.pdf` — 8 A4 pages
-- `Anatolian_Protocol_PL_Feasibility_mobile.pdf` — phone format
-- `Anatolian_Protocol_PL_Feasibility_slides.pdf` — 16 slides, 16:9
-- `plan/` — the business plan as an interactive forecast tool (assumptions, funding levers, P&L, monthly cash, scenarios); see `plan/README.md`
+- `plan/` — the business plan as an interactive forecast tool (assumptions, funding rounds, P&L, monthly cash, scenarios) with the P&L feasibility report built live from the current plan: A4 pages, phone and slide views, print to PDF (`plan/#/report`); see `plan/README.md`
+- `index.html` — redirects to the report in the plan tool
+- `Anatolian_Protocol_PL_Feasibility_A4.pdf`, `…_mobile.pdf`, `…_slides.pdf` — the earlier static presentation (model v12 / v5 numbers), kept for reference; its HTML version is in the git history before the redirect
