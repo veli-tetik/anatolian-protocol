@@ -39,7 +39,7 @@ Published with GitHub Pages at `/plan/` next to the presentation.
 
 ## Files
 
-- `data/v6.json` — the current plan (v6.7), loaded by default and the reference that changes are shown against: v6.6 (payment per visit, two rounds of $200k + $500k, a light pilot year, a slimmer care team, ATRON fees flat in USD, CEO and COO at $4k) with hiring month by month (`logic.monthlyStaff`): each role has a start month and, once started, is sized by the month's clients. The v6.7 workbook is not built yet; the latest workbook is v6.6. `tools/v62_inputs.json` … `tools/v66_inputs.json` keep earlier inputs for the regression check
+- `data/v6.json` — the current plan (v6.7), loaded by default and the reference that changes are shown against: v6.6 (payment per visit, two rounds of $200k + $500k, a light pilot year, a slimmer care team, ATRON fees flat in USD, CEO and COO at $4k) with hiring month by month (`logic.monthlyStaff`): each role has a start month and, once started, is sized by the month's clients. `Anatolian_Protocol_PL_Feasibility_v6.7.xlsx` is the same plan as a workbook (Team monthly sheet, start months on Inputs F column J, switch in section Q). `tools/v62_inputs.json` … `tools/v66_inputs.json` keep earlier inputs for the regression check
 - `data/v5.json` — the v5 Excel model as data (all assumptions), kept for history and the regression check
 - `data/levers.json` — funding levers
 - `data/scenarios.json` — business scenarios: groups of cases, each a set of input changes on the plan
