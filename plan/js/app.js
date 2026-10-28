@@ -185,12 +185,25 @@
   }
   const errCount = () => S.issues.filter((i) => i.level === "error").length;
   // what the two rounds do for the plan: carried with the buffer, carried without it, or short
+  // The funding story in one place: what the pre-seed has to cover (the low point up to the seed), what both rounds
+  // have to cover (the five-year low point), each with the buffer, and what is left. Lows are after the reserve.
+  function fundingStory(R = S.R) {
+    const Rd = R.rounds, mo = R.monthly, B = R.scen.base, buf = 1 + S.A.finance.buffer;
+    const pre = mo.rows.slice(0, Rd.seedMonth), preMin = Math.min(...pre.map((r) => r.cumAfter));
+    const yearEnd = B.peakAfterReserve, monthly = mo.lowAfter, yearEndDeeper = yearEnd > monthly + 0.5;
+    const yi = B.years.findIndex((y) => y.cumAfterReserve === -yearEnd);
+    return {
+      preLow: -Math.min(0, preMin), preLowMonth: pre.findIndex((r) => r.cumAfter === preMin) + 1, preNeed: Rd.preNeeded, preSpare: Rd.pre - Rd.preNeeded,
+      allLow: R.funding / buf, allWhere: yearEndDeeper ? `end of year ${yi + 1}` : `month ${mo.lowAfterMonth}`, need: R.funding, allSpare: Rd.total - R.funding,
+      monthlyLow: monthly, monthlyMonth: mo.lowAfterMonth, yearEndLow: yearEnd, yearEndDeeper, buf: pct(S.A.finance.buffer),
+    };
+  }
   function roundsStatus(R = S.R) {
-    const Rd = R.rounds;
+    const Rd = R.rounds, st = fundingStory(R);
     if (Rd.preLasts < Rd.seedMonth) return { ok: false, text: `Pre-seed runs out in month ${Rd.preLasts + 1}, before the seed in month ${Rd.seedMonth}` };
     if (R.funding > Rd.total + 0.5) return { ok: false, text: `Both rounds ${kusd(R.funding - Rd.total)} short of the cash need` };
     if (Rd.preNeeded > Rd.pre + 0.5) return { ok: true, text: `Covered, but the pre-seed reaches month ${Rd.seedMonth} without the ${pct(S.A.finance.buffer)} buffer` };
-    return { ok: true, text: `Covered with the ${pct(S.A.finance.buffer)} buffer; the pre-seed lasts to month ${Rd.preLasts >= 36 ? "36+" : Rd.preLasts}` };
+    return { ok: true, text: `The pre-seed covers the low point before the seed (${kusd(-st.preLow)}, ${kusd(st.preNeed)} with the buffer); both rounds cover the five-year low (${kusd(-st.allLow)}, ${kusd(st.need)} with the buffer)` };
   }
   function checksTxt() {
     const e = errCount(), w = S.issues.length - e;
@@ -227,8 +240,7 @@
     const R = S.R, B = R.scen.base, RF = S.refR, y5 = B.years[4];
     const html = header("Overview", `Base case · ${esc(S.name)} · USD, excl. VAT`, `<button class="ui-btn" data-go="funding">Lower the cash need</button>`)
       + checksBanner() + `<div class="ui-tiles">
-        ${tile("Pre-seed + seed", `${kusd(R.rounds.pre)} + ${kusd(R.rounds.seed)}`, `<span class="${roundsStatus().ok ? "" : "delta-bad"}">${roundsStatus().text}</span>`, "focus")}
-        ${tile("Cash need (low point + buffer)", kusd(R.funding), deltaTxt(R.funding, RF.funding, true))}
+        ${fundingTiles(R)}
         ${tile("Lowest cash point", "Month " + R.monthly.lowAfterMonth, "After the prepayment reserve")}
         ${tile("First year with positive EBITDA", yearOf(B.firstEbitda), "Net cash positive: " + yearOf(B.firstCash))}
         ${tile("Year-5 revenue", kusd(y5.revenue), deltaTxt(y5.revenue, RF.scen.base.years[4].revenue))}
@@ -274,6 +286,15 @@
         + (withRounds && i === Rd.seedMonth ? `<div class="r"><span>Seed received</span><span>${usd(Rd.seed)}</span></div>` : ""),
     });
     document.querySelectorAll("[data-bal]").forEach((b) => (b.onclick = () => { S.balMode = b.dataset.bal; render(true); }));
+  }
+  // Pre-seed against the low point before the seed; both rounds against the five-year low point.
+  function fundingTiles(R) {
+    const Rd = R.rounds, st = fundingStory(R), status = roundsStatus(R);
+    const spare = (v) => `<span class="${v < -0.5 ? "delta-bad" : "delta-good"}">${v < -0.5 ? `${kusd(-v)} short` : `${kusd(v)} to spare`}</span>`;
+    return tile("Pre-seed", kusd(Rd.pre), status.ok || Rd.preLasts >= Rd.seedMonth
+        ? `Covers the low point before the seed: ${kusd(-st.preLow)} in month ${st.preLowMonth}, ${kusd(st.preNeed)} with the ${st.buf} buffer · ${spare(st.preSpare)}`
+        : `<span class="delta-bad">${status.text}</span>`, "focus")
+      + tile("Pre-seed + seed", kusd(Rd.total), `Cover the five-year low point: ${kusd(-st.allLow)} at the ${st.allWhere}, ${kusd(st.need)} with the buffer · ${spare(st.allSpare)}`);
   }
   function cashChart(host, mo, compare) {
     const rows = mo.rows;
@@ -323,11 +344,10 @@
         <div class="ui-field"><div class="lbl">Seed amount</div><div class="inputs">${inputHTML("rounds.seedAmount", "usd")}</div></div>
         ${issuesFor("rounds").map((m) => `<small class="ui-msg ${m.level}">${esc(m.msg)}</small>`).join("")}</div></section>
       <div class="ui-tiles">
-        ${tile("Pre-seed", kusd(Rd.pre), Rd.fixed ? `Sized for month ${X} with ${buf} buffer: ${kusd(Rd.preNeeded)}` : `Carries the plan to month ${X}, incl. ${buf} buffer`, "focus")}
-        ${tile("Pre-seed lasts", Rd.preLasts >= 36 ? "36+ months" : "To month " + Rd.preLasts, Rd.cushion >= 0 ? `${kusd(Rd.cushion)} left at the low point before the seed` : `${kusd(-Rd.cushion)} short before the seed`)}
+        ${fundingTiles(S.R)}
+        ${tile("Pre-seed alone lasts", Rd.preLasts >= 36 ? "36+ months" : "To month " + Rd.preLasts, Rd.cushion >= 0 ? `${kusd(Rd.cushion)} left at the low point before the seed` : `${kusd(-Rd.cushion)} short before the seed`)}
         ${tile("Seed the plan needs", kusd(Rd.seedNeeded), `Of a ${kusd(Rd.seed)} seed`)}
         ${tile(short ? "Seed shortfall" : "Seed surplus", kusd(Math.abs(Rd.surplus)), short ? "Raise more or close later" : "Free for growth and risk")}
-        ${tile("Raised in both rounds", kusd(Rd.total), `Cash need ${kusd(S.R.funding)} (low point + buffer)`)}
         ${tile("Lowest cash after both rounds", kusd(Rd.low), "Month " + Rd.lowMonth)}
       </div>
       <section class="ui-panel"><h2>Cash after the rounds</h2><div class="sub">First 36 months, after the prepayment reserve: the pre-seed on day one, the seed at the end of month ${X}. ${esc(roundsStatus().text)}.</div><div class="body"><div id="ch-rounds"></div></div></section>
@@ -486,7 +506,7 @@
   };
 
   // The investor report (js/report.js): A4 pages, phone column and slides, generated from the current plan.
-  const reportCtx = () => ({ A: S.A, R: S.R, name: S.name, data: S.report, M, C, kusd, usd, esc, roundsStatus, scen, IK_ITEMS });
+  const reportCtx = () => ({ A: S.A, R: S.R, name: S.name, data: S.report, M, C, kusd, usd, esc, roundsStatus, fundingStory, scen, IK_ITEMS });
   P.report = () => {
     const rp = window.APReport.render(reportCtx());
     return [header("Report document", rp.meta, rp.actions) + checksBanner() + rp.html, rp.after];
@@ -1043,7 +1063,7 @@
   window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => render(true), 150); });
   window.addEventListener("hashchange", () => render());
 
-  Promise.all(["data/v5.json", "data/v6.json", "data/levers.json", "data/scenarios.json", "data/report.json"].map((u) => fetch(u + "?v=77").then((r) => r.json())))
+  Promise.all(["data/v5.json", "data/v6.json", "data/levers.json", "data/scenarios.json", "data/report.json"].map((u) => fetch(u + "?v=79").then((r) => r.json())))
     .then(([v5, v6, lv, sc, rp]) => {
       S.ref = v6; S.v5 = v5; S.v6 = v6; S.scenDefs = sc; S.levers = lv.levers; S.report = rp; S.refR = M.compute(v6);
       if (!readShare()) {

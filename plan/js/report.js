@@ -334,8 +334,9 @@
     const page = (right, body) => PAGES.push([right, body]), slide = (right, body) => SLIDES.push([right, body]);
 
     // shared pieces
+    const ST = ctx.fundingStory();
     const FACTS = `<div class="facts">
-<div><small>Two rounds · need ${kusd(R.funding)}</small><strong>${kusd(Rd.total)}</strong><p>${short ? `Pre-seed runs out in month ${Rd.preLasts + 1}` : status.ok ? `${kusd(Rd.pre)} pre-seed + ${kusd(Rd.seed)} seed` : esc(status.text)}</p></div>
+<div><small>Two rounds · low ${kusd(-ST.allLow)}</small><strong>${kusd(Rd.total)}</strong><p>${short ? `Pre-seed runs out in month ${Rd.preLasts + 1}` : status.ok ? `${kusd(Rd.pre)} pre-seed + ${kusd(Rd.seed)} seed` : esc(status.text)}</p></div>
 <div><small>EBITDA positive</small><strong>${Yof(B.firstEbitda)}</strong><p>Net cash positive in ${yearOf(B.firstCash)}</p></div>
 <div><small>Year-5 revenue</small><strong>${musd(Y[4].revenue)}</strong><p>${pc(Y[4].ebitdaMargin)} EBITDA margin</p></div></div>`;
     const CLIENT_KPIS = '<div class="kpis">'
@@ -394,7 +395,7 @@
       : kpi("Pre-seed lasts", Rd.preLasts >= 36 ? "36+<span> months</span>" : `${Rd.preLasts}<span> months</span>`, Rd.cushion >= 0 ? `${kusd(Rd.cushion)} left at the low point before the seed` : `${kusd(-Rd.cushion)} short before the seed`);
     const FUND_KPIS = '<div class="kpis">'
       + kpi("Raised in two rounds", kusd(Rd.total), `${kusd(Rd.pre)} pre-seed on day one, ${kusd(Rd.seed)} seed at the end of month ${Rd.seedMonth}`, "dark")
-      + kpi("Cash need", kusd(R.funding), `lowest cash ${kusd(-mo.lowAfter)} in month ${mo.lowAfterMonth}, plus the ${buf} buffer`)
+      + kpi("Five-year low point", kusd(-ST.allLow), `at the ${ST.allWhere}; ${kusd(ST.need)} with the ${buf} buffer, which both rounds cover`)
       + preKpi
       + kpi(Rd.surplus < -0.5 ? "Seed shortfall" : "Seed surplus", kusd(Math.abs(Rd.surplus)), `the plan needs ${kusd(Rd.seedNeeded)} of the ${kusd(Rd.seed)} seed`) + "</div>";
     const months = (n) => (["", "one month", "two months", "three months", "four months", "five months", "six months"][n] || n + " months");
@@ -402,7 +403,7 @@
       ? `<div class="note red"><b>The ${kusd(Rd.pre)} pre-seed runs out in month ${Rd.preLasts + 1}, ${months(Rd.seedMonth - Rd.preLasts - 1)} before the seed at the end of month ${Rd.seedMonth}.</b> Up to the seed, cash after the reserve falls to ${kusd(-lowBefore)}; with the ${buf} buffer the pre-seed would need ${kusd(Rd.preNeeded)}. ${R.funding <= Rd.total + 0.5 ? `Both rounds together cover the ${kusd(R.funding)} cash need, with ${kusd(Rd.surplus)} of the seed to spare.` : `Both rounds together are ${kusd(R.funding - Rd.total)} short of the ${kusd(R.funding)} cash need.`}</div>`
       : `<div class="note"><b>${esc(status.text)}.</b> ${R.funding <= Rd.total + 0.5 ? `The seed leaves ${kusd(Rd.surplus)} for growth and risk.` : ""}</div>`;
     const yearEndView = B.peakAfterReserve;
-    const FUND_PTS = pts([`<b>The monthly view goes deeper:</b> cash after the reserve bottoms out in month ${mo.lowAfterMonth} at ${kusd(-mo.lowAfter)}` + (mo.lowAfter > yearEndView + 500 ? `, ${kusd(mo.lowAfter - yearEndView)} below the year-end figure.` : "."),
+    const FUND_PTS = pts([`<b>Which round covers what:</b> the ${kusd(Rd.pre)} pre-seed covers the low point before the seed (${kusd(-ST.preLow)} in month ${ST.preLowMonth}, ${kusd(ST.preNeed)} with the buffer); both rounds cover the five-year low (${kusd(-ST.allLow)} at the ${ST.allWhere}, ${kusd(ST.need)} with the buffer).`,
       `<b>${Pay && Pay.byVisit ? "Clients pay per visit" : "Payment"}:</b> ${payText(A)}. The visit costs are covered on the day; the set-up, the fixed team and the months before the first clients need the funding.`,
       `<b>New countries are a marketing step:</b> clients travel to Türkiye, so a new source country needs only ${usd(A.countries.oneOff)} for translation and claims review; ad spend sits in the cost per lead.`,
       `<b>Part of client prepayments is held back</b> for refunds: ${pc(F.reserve[0])} of undelivered client cash in year one, ${pc(F.reserve[1])} in year two, then ${pc(F.reserve[2])}.`]);
@@ -523,7 +524,7 @@
     const SOURCES = `<p class="cap">Sources: ${esc(D.sources || "")}</p>`;
     const MONTHLY = (h) => `<div class="fig mbars" data-mchart data-h="${h}"></div>`;
     const MONTHLY_CAP = `<p class="cap">Cash after the prepayment reserve, with the ${kusd(Rd.pre)} pre-seed on day one and the ${kusd(Rd.seed)} seed at the end of month ${Rd.seedMonth}. ${esc(status.text)}.</p>`;
-    const H2_FUND = `${kusd(Rd.pre)} pre-seed and ${kusd(Rd.seed)} seed <em>for a ${kusd(R.funding)} cash need</em>`;
+    const H2_FUND = `${kusd(Rd.pre)} pre-seed to the seed, ${kusd(Rd.total)} in two rounds <em>against a ${kusd(-ST.allLow)} low point</em>`;
     const priceW = w.price, delivW = w.delivery;
     const COVER_H = `A client pays ${k1(priceW)} and costs ${k1(delivW)} to serve.<em>EBITDA turns positive in ${FE}.</em>`.replace("turns positive in after year five", "is not positive within five years");
     const TEAM_LEGEND = legend([["Care team", "", "var(--tb)"], ["Advisors", "", "var(--tl)"], ["Leadership", "", "var(--ink)"]]);
@@ -564,7 +565,7 @@ ${FACTS}
 <div class="sec">${sec("Profit and loss", "plan")}<div class="split even"><div>${PL_LEGEND}<div class="fig">${revEbitda(Y)}</div></div><div>${PL_MINI}<div style="margin-top:4mm">${PL_POINTS}</div></div></div></div>`);
     page("04 · Cash and funding", `
 <p class="kicker">04 / Cash and funding</p><h2 class="h">${H2_FUND}</h2>
-<p class="sub">The cash need is the lowest cash point after holding back part of client prepayments as a refund reserve, plus a ${buf} buffer.</p>
+<p class="sub">Each round covers a low point of cash after the refund reserve, with a ${buf} buffer.</p>
 <div class="sec">${FUND_KPIS}</div>${ROUNDS_NOTE}
 <div class="sec">${sec("Cash balance, month by month", "first 36 months, after the reserve, with the rounds")}${MONTHLY(190)}</div>
 <div class="sec">${FUND_PTS}</div>`);
@@ -639,11 +640,11 @@ ${UPSIDE}`);
           panel("Revenue and EBITDA", "plan, USD", fig(revEbitda(Y), PL_LEGEND)),
           panel("Profit and loss", "plan, USD k", PL_MINI + `<div style="margin-top:12px">${PL_POINTS}</div>`),
           panel("Five-year P&amp;L", "plan, USD k", PL_FULL, true)] },
-      { id: "rcash", title: "Cash and funding", meta: `${kusd(Rd.pre)} pre-seed and ${kusd(Rd.seed)} seed for a ${kusd(R.funding)} cash need · ${esc(status.text)}`,
+      { id: "rcash", title: "Cash and funding", meta: `${kusd(Rd.pre)} pre-seed to the seed, ${kusd(Rd.total)} in two rounds against a ${kusd(-ST.allLow)} five-year low · ${esc(status.text)}`,
         kpis: FUND_KPIS + ROUNDS_NOTE, panels: [
           panel("Cash balance, month by month", "first 36 months, after the reserve, with the rounds", MONTHLY(240) + MONTHLY_CAP, true),
           panel("Year one, and what drives the need", "pilot year, USD", fig(y1Bars(Y[0]))),
-          panel("What sets the cash need", "", FUND_PTS)] },
+          panel("Which round covers what", "", FUND_PTS)] },
       { id: "rcases", title: "Business cases", meta: `Each group of cases computed in full against the ${kusd(Rd.total)} raised in two rounds`,
         kpis: "", panels: [
           panel("Cash need by group of cases", "each computed in full", SCEN_TABLE, true),
@@ -729,7 +730,7 @@ ${UPSIDE}`);
     const actions = `<div class="ui-seg" role="group" aria-label="Report view">${views.map(([v, t]) => `<button data-rview="${v}" aria-pressed="${st.view === v}">${t}</button>`).join("")}</div><button class="ui-btn" data-rprint>Print</button>`;
     const html = `<div class="ap-report view-${st.view || "a4"}"><main class="ap-doc">${built.doc}</main><section class="ap-deck" aria-label="Slides">${built.deck}</section>
       <div class="ap-deck-nav"><button type="button" data-deck="-1" aria-label="Previous slide">‹</button><span class="count">1 / ${built.ns}</span><button type="button" data-deck="1" aria-label="Next slide">›</button></div></div>`;
-    const meta = `${ctx.esc(ctx.name)} · ${built.np} A4 pages, ${built.ns} slides · cash need ${ctx.kusd(R.funding)} · generated from the plan`;
+    const meta = `${ctx.esc(ctx.name)} · ${built.np} A4 pages, ${built.ns} slides · ${ctx.kusd(R.rounds.pre)} + ${ctx.kusd(R.rounds.seed)} against a ${ctx.kusd(-ctx.fundingStory().allLow)} five-year low · generated from the plan`;
     const after = () => {
       const root = document.querySelector(".ap-report");
       if (!root) return;
