@@ -36,21 +36,26 @@ svg { display: block; overflow: visible; }
   --ui-success-soft: #e4f4ec;
   --ui-warning: #a86400;
   --ui-warning-soft: #fdf1dc;
-  --ui-danger: #c0262d;
+  --ui-danger: #db0011;
   --ui-danger-soft: #fbe8e8;
   --ui-changed: #fff5d6;
   --ui-changed-line: #e2b84a;
   --ui-brand: #db0011;
 
   /* chart roles (dataviz reference palette, light steps) */
-  --viz-1: #2a78d6;
-  --viz-2: #eb6834;
-  --viz-3: #1baf7a;
+  /* brand (the report's colours): petrol, sky, deep petrol, red, ink */
+  --brand-ink: #1e1f21; --brand-deep: #1f5d75; --brand-tb: #3a8eac; --brand-tl: #59caf4; --brand-blue-line: #b8e4f6; --brand-blue-soft: #eaf6fb;
+  --brand-red: #db0011; --brand-red-soft: #fdeced; --brand-cost: #c9ccd0; --brand-cost2: #e3e5e8; --brand-dark-bg: #15181c;
+  /* chart roles: brand series (validated: adjacent pairs separate under CVD; ink and sky carry labels) */
+  --viz-1: var(--brand-tb);
+  --viz-2: var(--brand-ink);
+  --viz-3: var(--brand-tl);
+  --viz-red: var(--brand-red);
   --viz-neutral: #9aa1a9;
-  --viz-y1: #1f5d75;
-  --viz-y2: #3a8eac;
-  --viz-y3: #8cc7dd;
-  --viz-low: var(--ui-danger);
+  --viz-y1: var(--brand-tb);
+  --viz-y2: var(--brand-tl);
+  --viz-y3: var(--brand-blue-line);
+  --viz-low: var(--brand-red);
   --viz-grid: #e6e8eb;
   --viz-axis: #c3c8ce;
 }
@@ -78,13 +83,9 @@ svg { display: block; overflow: visible; }
     --ui-danger-soft: #3a1a1a;
     --ui-changed: #3a3216;
     --ui-changed-line: #b8902a;
-    --viz-1: #3987e5;
-    --viz-2: #d95926;
-    --viz-3: #199e70;
+    --brand-ink: #e6e8ea; --brand-deep: #8fd8f7; --brand-tb: #4bb8e2; --brand-tl: #2a6f8c; --brand-blue-line: #1f4f63; --brand-blue-soft: #15323d;
+    --brand-red: #ef6b6b; --brand-red-soft: #3a1a1a; --brand-cost: #4a5057; --brand-cost2: #353a40; --brand-dark-bg: #0b0d0f;
     --viz-neutral: #6b737b;
-    --viz-y1: #8fd8f7;
-    --viz-y2: #4aa9cf;
-    --viz-y3: #2c7193;
     --viz-grid: #2a2f34;
     --viz-axis: #424950;
   }
@@ -96,8 +97,9 @@ svg { display: block; overflow: visible; }
   --ui-accent: #59caf4; --ui-accent-soft: #15323d; --ui-accent-ink: #0b1a20; --ui-focus: #59caf4;
   --ui-success: #4cc28a; --ui-success-soft: #13301f; --ui-warning: #e0a33a; --ui-warning-soft: #33270f;
   --ui-danger: #ef6b6b; --ui-danger-soft: #3a1a1a; --ui-changed: #3a3216; --ui-changed-line: #b8902a;
-  --viz-1: #3987e5; --viz-2: #d95926; --viz-3: #199e70; --viz-neutral: #6b737b; --viz-grid: #2a2f34; --viz-axis: #424950;
-  --viz-y1: #8fd8f7; --viz-y2: #4aa9cf; --viz-y3: #2c7193;
+  --viz-neutral: #6b737b; --viz-grid: #2a2f34; --viz-axis: #424950;
+  --brand-ink: #e6e8ea; --brand-deep: #8fd8f7; --brand-tb: #4bb8e2; --brand-tl: #2a6f8c; --brand-blue-line: #1f4f63; --brand-blue-soft: #15323d;
+  --brand-red: #ef6b6b; --brand-red-soft: #3a1a1a; --brand-cost: #4a5057; --brand-cost2: #353a40; --brand-dark-bg: #0b0d0f;
 }
 
 /* ---------------------------------------------------------------- primitives */
@@ -244,7 +246,8 @@ table.ui-table { width: 100%; border-collapse: collapse; }
 .viz .zero { stroke: var(--ui-border-strong); stroke-width: 1; }
 .viz .s1 { fill: var(--viz-1); } .viz .s2 { fill: var(--viz-2); } .viz .s3 { fill: var(--viz-3); } .viz .sn { fill: var(--viz-neutral); }
 .viz .my1 { fill: var(--viz-y1); } .viz .my2 { fill: var(--viz-y2); } .viz .my3 { fill: var(--viz-y3); }
-.viz .mlow { fill: var(--ui-danger); }
+.viz .mlow { fill: var(--viz-low); }
+.viz .sred { fill: var(--viz-red); }
 .viz svg text.mlow-t { fill: var(--ui-danger); font-weight: 650; }
 .viz .refline { stroke: var(--ui-text-2); stroke-width: 1.5; stroke-dasharray: 6 5; }
 .viz .l1 { stroke: var(--viz-1); } .viz .l2 { stroke: var(--viz-2); } .viz .l3 { stroke: var(--viz-3); }

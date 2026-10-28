@@ -162,7 +162,8 @@
 
   // ---------------------------------------------------------------- shell
   const PAGES = [
-    { group: "Plan", items: [["overview", "Overview"], ["rounds", "Funding rounds"], ["funding", "Cash levers"], ["scenarios", "Scenarios"], ["sensitivity", "Sensitivity"], ["report", "Report"]] },
+    { group: "Plan", items: [["overview", "Overview"], ["rounds", "Funding rounds"], ["funding", "Cash levers"], ["scenarios", "Scenarios"], ["sensitivity", "Sensitivity"]] },
+    { group: "Report", items: [["rpackages", "Packages and price"], ["reconomics", "Client economics"], ["rgrowth", "Growth and profit"], ["rcash", "Cash and funding"], ["rcases", "Business cases"], ["rmust", "What must be true"], ["report", "Document"]] },
     { group: "Model", items: [["assumptions", "Assumptions"], ["unit", "Unit economics"], ["pnl", "P&L"], ["cash", "Monthly cash"], ["partners", "Partners"], ["checks", "Checks"]] },
     { group: "Work", items: [["versions", "Versions"]] },
   ];
@@ -241,7 +242,7 @@
       <section class="ui-panel" style="margin-top:16px"><h2>Business scenarios</h2><div class="sub">Funding each group of cases needs, against the plan. Details and the cases themselves on the Scenarios page.</div><div class="body">${scenarioSummary()}</div></section>
       ${noGrowthPanel()}`;
     return [html, () => {
-      C.bars($("#ch-rev"), { labels: YRS, series: [{ name: "Revenue", c: 1, values: B.years.map((y) => y.revenue) }, { name: "EBITDA", c: 2, values: B.years.map((y) => y.ebitda) }], fmt: axis });
+      C.bars($("#ch-rev"), { labels: YRS, series: [{ name: "Revenue", c: 2, values: B.years.map((y) => y.revenue) }, { name: "EBITDA", c: 1, negRed: true, values: B.years.map((y) => y.ebitda) }], fmt: axis });
       balanceChart($("#ch-cash"));
       C.bars($("#ch-ng"), { labels: YRS, series: [{ name: "Growth plan", c: 1, values: B.years.map((y) => y.ebitda) }, { name: "No growth investment", c: 2, values: R.noGrowth.years.map((y) => y.ebitda) }], fmt: axis });
     }];
@@ -485,10 +486,21 @@
   };
 
   // The investor report (js/report.js): A4 pages, phone column and slides, generated from the current plan.
+  const reportCtx = () => ({ A: S.A, R: S.R, name: S.name, data: S.report, M, C, kusd, usd, esc, roundsStatus, scen, IK_ITEMS });
   P.report = () => {
-    const rp = window.APReport.render({ A: S.A, R: S.R, name: S.name, data: S.report, M, C, kusd, usd, esc, roundsStatus, scen, IK_ITEMS });
-    return [header("Report", rp.meta, rp.actions) + checksBanner() + rp.html, rp.after];
+    const rp = window.APReport.render(reportCtx());
+    return [header("Report document", rp.meta, rp.actions) + checksBanner() + rp.html, rp.after];
   };
+  // The report's charts and tables as screens of the app: one screen per report section, each block a panel.
+  for (const id of ["rpackages", "reconomics", "rgrowth", "rcash", "rcases", "rmust"]) {
+    P[id] = () => {
+      const sc = window.APReport.screens(reportCtx()).find((x) => x.id === id);
+      const panels = sc.panels.map((p) => `<section class="ui-panel${p.wide ? " span-all" : ""}"><h2>${p.title}</h2>${p.sub ? `<div class="sub">${p.sub}</div>` : ""}<div class="body ap-fig">${p.body}</div></section>`).join("");
+      const html = header(sc.title, sc.meta, `<button class="ui-btn" data-go="report">Open the document</button>`) + checksBanner()
+        + (sc.kpis ? `<div class="ap-fig ap-top">${sc.kpis}</div>` : "") + `<div class="ui-grid ap-screen">${panels}</div>`;
+      return [html, () => window.APReport.draw($("#main"))];
+    };
+  }
 
   // ---------------------------------------------------------------- inputs
   function inputHTML(path, kind, cls = "") {
@@ -802,7 +814,7 @@
   window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => render(true), 150); });
   window.addEventListener("hashchange", () => render());
 
-  Promise.all(["data/v5.json", "data/v6.json", "data/levers.json", "data/scenarios.json", "data/report.json"].map((u) => fetch(u + "?v=65").then((r) => r.json())))
+  Promise.all(["data/v5.json", "data/v6.json", "data/levers.json", "data/scenarios.json", "data/report.json"].map((u) => fetch(u + "?v=68").then((r) => r.json())))
     .then(([v5, v6, lv, sc, rp]) => {
       S.ref = v6; S.v5 = v5; S.v6 = v6; S.scenDefs = sc; S.levers = lv.levers; S.report = rp; S.refR = M.compute(v6);
       if (!readShare()) {

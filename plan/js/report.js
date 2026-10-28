@@ -615,10 +615,54 @@ ${UPSIDE}`);
     slide("05 · Risks", `<p class="kicker">05 / Risks</p><h2 class="h">What could break the plan</h2><div class="fill">${RISKS}${UPSIDE}</div>`);
     slide("Method", `<p class="kicker">Method</p><h2 class="h">How the model is built</h2><div class="fill">${METHOD}</div>`);
 
+    // ---------------------------------------------------------------- app screens (Report section): the same blocks as panels
+    const fig = (svgStr, legendHtml = "") => `${legendHtml}<div class="fig">${svgStr}</div>`;
+    const panel = (title, sub, body, wide) => ({ title, sub, body, wide: !!wide });
+    const screens = [
+      { id: "rpackages", title: "Packages and price", meta: `Three packages, two service levels · weighted list price ${usd(w.price)} in year one`,
+        kpis: CLIENT_KPIS, panels: [
+          panel("What the client buys", "one program year", CLIENT_YEAR, true),
+          panel("Three packages, two service levels", "list price, year one", PKG_CARDS, true),
+          panel("Pricing and payment rules", "in the model", CHIPS, true),
+          panel("Above remote programs, below destination clinics", "published prices", fig(priceChart(A, D.benchmarks || [])) + `<p class="cap">Grey: competitors per year. Light grey: per stay. Blue: proposed Anatolian prices.</p>`, true)] },
+      { id: "reconomics", title: "Client economics", meta: `Weighted client, year one · contribution ${usd(w.contribution)} · profit after acquisition ${usd(w.afterAcq)}`,
+        kpis: CLIENT_KPIS, panels: [
+          panel("Where one client's money goes", "weighted client, first year", fig(clientBar(w)) + `<p class="cap"><b>Contribution</b> = price − partners − fees. <b>Profit after acquisition</b> = contribution − acquisition. P&amp;L gross profit also deducts the care team.</p>`, true),
+          panel(weak.afterAcq > 0 ? "Every package pays back its acquisition cost" : "Not every package pays back its acquisition cost", "what each package leaves after partners, fees and acquisition", fig(pkgBars(U.cols), PKG_LEGEND)),
+          panel("The weighted client, step by step", "first year, USD", fig(waterfall(w))),
+          panel("What the numbers say", "", UE_POINTS),
+          panel("Per client, by package", "year one, USD", UE_TABLE, true)] },
+      { id: "rgrowth", title: "Growth and profit", meta: `From ${n0(Y[0].newClients)} pilot clients to ${n0(Y[4].newClients)} a year · EBITDA positive from ${Yof(B.firstEbitda)}`,
+        kpis: GROWTH_KPIS, panels: [
+          panel("Program years sold", "new and renewing clients", fig(clientsChart(Y), CLIENT_LEGEND)),
+          panel("Team", "full-time equivalents", fig(teamChart(Y, A.team), TEAM_LEGEND) + TEAM_CAP),
+          panel("Revenue and EBITDA", "plan, USD", fig(revEbitda(Y), PL_LEGEND)),
+          panel("Profit and loss", "plan, USD k", PL_MINI + `<div style="margin-top:12px">${PL_POINTS}</div>`),
+          panel("Five-year P&amp;L", "plan, USD k", PL_FULL, true)] },
+      { id: "rcash", title: "Cash and funding", meta: `${kusd(Rd.pre)} pre-seed and ${kusd(Rd.seed)} seed for a ${kusd(R.funding)} cash need · ${esc(status.text)}`,
+        kpis: FUND_KPIS + ROUNDS_NOTE, panels: [
+          panel("Cash balance, month by month", "first 36 months, after the reserve, with the rounds", MONTHLY(240) + MONTHLY_CAP, true),
+          panel("Year one, and what drives the need", "pilot year, USD", fig(y1Bars(Y[0]))),
+          panel("What sets the cash need", "", FUND_PTS)] },
+      { id: "rcases", title: "Business cases", meta: `Each group of cases computed in full against the ${kusd(Rd.total)} raised in two rounds`,
+        kpis: "", panels: [
+          panel("Cash need by group of cases", "each computed in full", SCEN_TABLE, true),
+          panel("Cumulative cash", "before funding", fig(cashLines(cashSeries, 460, 250), CASH_LEGEND) + CASH_CAP),
+          panel("Plan, no growth and the hardest case", "USD M", CMP_TABLE + CMP_CAP),
+          panel("In and out of the numbers", "", UPSIDE, true)] },
+      { id: "rmust", title: "What must be true", meta: "Four things must hold · break-even and profit per client recomputed with the engine",
+        kpis: "", panels: [
+          panel("Four things must hold", "", MUST, true),
+          panel("Clients a year to break even", "year-3 new clients", HEAT_BE),
+          panel("Profit per new client", "USD k, after acquisition", HEAT_ACQ),
+          panel("How to read the tables", "", HEAT_CAP, true),
+          panel("Risks to the numbers", "", RISKS, true)] },
+    ];
+
     const np = PAGES.length, ns = SLIDES.length;
     const doc = PAGES.map(([right, body], i) => `<article class="page" aria-label="Page ${i + 1}">${top(right, i + 1, np)}${body}${FOOT}</article>`).join("");
     const deck = SLIDES.map(([right, body], i) => `<div class="slide-frame"><article class="slide" aria-label="Slide ${i + 1}">${top(right, i + 1, ns)}${body}${FOOT}</article></div>`).join("");
-    return { doc, deck, np, ns };
+    return { doc, deck, np, ns, screens };
   }
 
   // ---------------------------------------------------------------- views: A4 pages, phone column, slides
@@ -718,5 +762,10 @@ ${UPSIDE}`);
     else if (e.key === "End") { st.slide = 1e9; layout(root); }
   });
 
-  window.APReport = { render };
+  function screens(ctx) {
+    drawCtx = ctx;
+    return build(ctx).screens;
+  }
+
+  window.APReport = { render, screens, draw: drawCharts };
 })();

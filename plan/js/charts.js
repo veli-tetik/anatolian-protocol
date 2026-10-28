@@ -57,7 +57,7 @@
   // ---------------------------------------------------------- grouped bars
   function bars(host, { labels, series, fmt, height = 240 }) {
     const { svg, tip, W, H } = frame(host, height);
-    legend(host, series.map((s) => ({ name: s.name, c: s.c })));
+    legend(host, series.map((s) => ({ name: s.name, c: s.c })).concat(series.some((s) => s.negRed && s.values.some((v) => v < 0)) ? [{ name: "Loss", c: "red" }] : []));
     const pad = { l: 56, r: 8, t: 8, b: 24 };
     const all = series.flatMap((s) => s.values).concat([0]);
     const ticks = niceTicks(Math.min(...all), Math.max(...all));
@@ -69,7 +69,8 @@
     labels.forEach((lab, i) => {
       const gx = pad.l + i * gw + (gw - bw * series.length - 2 * (series.length - 1)) / 2;
       series.forEach((s, j) => {
-        el("path", { d: barPath(gx + j * (bw + 2), bw, y(0), y(s.values[i])), class: "s" + s.c }, svg);
+        // a series marked negRed shows its losses in the brand red (as the report does)
+        el("path", { d: barPath(gx + j * (bw + 2), bw, y(0), y(s.values[i])), class: s.negRed && s.values[i] < 0 ? "sred" : "s" + s.c }, svg);
       });
       el("text", { x: pad.l + i * gw + gw / 2, y: H - 6, "text-anchor": "middle" }, svg).textContent = lab;
       const hit = el("rect", { x: pad.l + i * gw, y: pad.t, width: gw, height: H - pad.t - pad.b, class: "hit" }, svg);
@@ -132,7 +133,7 @@
       const bx = pad.l + i * gw + (gw - bw) / 2;
       const top = Math.min(y(it.from), y(it.to)), h = Math.max(1, Math.abs(y(it.from) - y(it.to)));
       if (it.total) el("path", { d: barPath(bx, bw, y(0), y(it.to)), class: i === 0 ? "sn" : "s1" }, svg);
-      else el("rect", { x: bx, y: top, width: bw, height: h, rx: 2, class: it.to < it.from ? "s3" : "s2" }, svg);
+      else el("rect", { x: bx, y: top, width: bw, height: h, rx: 2, class: it.to < it.from ? "s3" : "sred" }, svg);
       if (i < items.length - 1) el("line", { x1: bx + bw, x2: bx + gw, y1: y(it.to), y2: y(it.to), class: "grid" }, svg);
       const val = it.total ? it.to : it.to - it.from;
       el("text", { x: bx + bw / 2, y: top - 5, "text-anchor": "middle", class: "lbl" }, svg).textContent = fmt(val);
