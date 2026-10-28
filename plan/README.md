@@ -39,7 +39,7 @@ Published with GitHub Pages at `/plan/` next to the presentation.
 
 ## Files
 
-- `data/v6.json` — the current plan (v6.5, `Anatolian_Protocol_PL_Feasibility_v6.5.xlsx` as data), loaded by default and the reference that changes are shown against: v6.4 (payment per visit, two rounds of $200k + $500k, a light pilot year, a slimmer care team) with ATRON's platform fees as USD licence fees, flat in dollars instead of following the Türkiye cost index, and the $40k set-up balance taken in ATRON equity. `tools/v62_inputs.json` … `tools/v64_inputs.json` keep earlier inputs for the regression check
+- `data/v6.json` — the current plan (v6.6, `Anatolian_Protocol_PL_Feasibility_v6.6.xlsx` as data), loaded by default and the reference that changes are shown against: v6.5 (payment per visit, two rounds of $200k + $500k, a light pilot year, a slimmer care team, ATRON fees flat in USD) with a CEO (general manager) and a COO at $4k a month each. `tools/v62_inputs.json` … `tools/v65_inputs.json` keep earlier inputs for the regression check
 - `data/v5.json` — the v5 Excel model as data (all assumptions), kept for history and the regression check
 - `data/levers.json` — funding levers
 - `data/scenarios.json` — business scenarios: groups of cases, each a set of input changes on the plan
