@@ -317,3 +317,19 @@ table.ui-table { width: 100%; border-collapse: collapse; }
   .asm-nav { position: static; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .asm-search { width: 100%; }
 }
+/* assumptions as a grid: input | value | unit | plan | effect | notes (collapsible) */
+.asm-grid td { white-space: normal; vertical-align: middle; height: auto; padding-top: 6px; padding-bottom: 6px; }
+.asm-grid td:first-child { min-width: 200px; }
+.asm-grid .asm-val .inputs { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.asm-grid .asm-unit { color: var(--ui-muted); font-size: var(--ui-meta-size); text-align: left; }
+.asm-grid .asm-ref { white-space: nowrap; }
+.asm-grid .asm-ref .ui-reset { display: block; margin-left: auto; }
+.asm-grid .asm-same { color: var(--ui-muted); font-size: var(--ui-meta-size); }
+.asm-grid .asm-eff { text-align: left; min-width: 130px; }
+.asm-grid .asm-note { text-align: left; min-width: 260px; max-width: 420px; font-size: var(--ui-meta-size); color: var(--ui-text-2); }
+.asm-grid tr.asm-changed td { background: var(--ui-changed); }
+.asm-grid tr.asm-changed td:first-child { box-shadow: inset 2px 0 0 var(--ui-changed-line); }
+.asm-grid .asm-lbl { font-weight: 500; }
+.asm-tag { display: block; font-size: var(--ui-meta-size); color: var(--ui-muted); text-transform: uppercase; letter-spacing: .04em; }
+.asm-note-dot { width: 16px; height: 16px; margin-left: 6px; border-radius: 50%; border: 1px solid var(--ui-border-strong); background: var(--ui-surface); color: var(--ui-muted); font: 600 10px/14px var(--ui-font); cursor: pointer; padding: 0; vertical-align: 1px; }
+.asm-note-dot:hover { border-color: var(--ui-accent); color: var(--ui-accent); }

@@ -40,7 +40,7 @@
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
   // ---------------------------------------------------------------- state
-  const S = { asmSec: "prices", asmQuery: "", balMode: "rounds", issues: [], ref: null, v6: null, scenDefs: { groups: [] }, holds: { conversion: "plan", referral: "plan" }, scenCache: null, A: null, name: "v6.3 plan", levers: [], pick: null, scen: "base", metric: "funding", changedOnly: false, R: null, refR: null };
+  const S = { asmNotes: false, asmSec: "prices", asmQuery: "", balMode: "rounds", issues: [], ref: null, v6: null, scenDefs: { groups: [] }, holds: { conversion: "plan", referral: "plan" }, scenCache: null, A: null, name: "v6.3 plan", levers: [], pick: null, scen: "base", metric: "funding", changedOnly: false, R: null, refR: null };
 
   function flatten(A) {
     const out = {};
@@ -96,7 +96,7 @@
     if (typeof v === "boolean") return v ? "On" : "Off";
     if (f && f.kind === "pct") return pct(v, 1).replace(".0%", "%");
     if (f && f.kind === "usd") return usd(v);
-    return num(v, 3);
+    return (+v).toLocaleString("en-GB", { maximumFractionDigits: 3 });
   };
 
   function recompute() {
@@ -510,9 +510,7 @@
     const title = changed && r !== undefined ? `v6.3: ${fmtInput(r, kind)}` : "";
     return `<input class="ui-input ${cls}${changed ? " changed" : ""}${bad ? " invalid" : ""}" type="text" inputmode="decimal" autocomplete="off" id="in-${path.replace(/\./g, "-")}" data-path="${path}" data-kind="${kind}" value="${fmtInput(v, kind)}" title="${title}"${bad ? ' aria-invalid="true"' : ""} aria-label="${esc(labelOf(path.replace(/\.\d+$/, "")))}">`;
   }
-  function fieldHTML(f, eff) {
-    const v = M.getPath(S.A, f.path);
-    if (v === undefined || v === null) return "";
+  function fieldInputs(f, v) {
     let inputs;
     if (f.shape === "pair") inputs = ["Standard", "Premium"].map((c, i) => `<label class="ui-input-cap"><span>${c}</span>${inputHTML(f.path + "." + i, f.kind)}</label>`).join("");
     else if (f.shape === "years") inputs = YRS.map((c, i) => `<label class="ui-input-cap"><span>${c}</span>${inputHTML(f.path + "." + i, f.kind, "narrow")}</label>`).join("");
@@ -520,6 +518,12 @@
     else if (Array.isArray(v)) inputs = v.map((_, i) => `<label class="ui-input-cap"><span>${["Annual", "Summer–Winter", "Seasonal"][i] || i + 1}</span>${inputHTML(f.path + "." + i, f.kind, "narrow")}</label>`).join("");
     else if (f.kind === "bool") inputs = `<label class="ui-switch"><input type="checkbox" data-bool="${f.path}"${v !== false ? " checked" : ""}> ${v !== false ? "On" : "Off"}</label>`;
     else inputs = inputHTML(f.path, f.kind);
+    return inputs;
+  }
+  function fieldHTML(f, eff) {
+    const v = M.getPath(S.A, f.path);
+    if (v === undefined || v === null) return "";
+    const inputs = fieldInputs(f, v);
     const changed = JSON.stringify(v) !== JSON.stringify(M.getPath(S.ref, f.path));
     const unit = { usd: "USD" }[f.kind];
     const msgs = issuesFor(f.path);
@@ -566,6 +570,21 @@
   const effectHTML = (e) => (Math.abs(e.d) < 500
     ? `<small class="ui-effect">${e.step} → cash need unchanged</small>`
     : `<small class="ui-effect">${e.step} → cash need <span class="${e.d < 0 ? "delta-good" : "delta-bad"}">${e.d > 0 ? "+" : "−"}${kusd(Math.abs(e.d))}</span></small>`);
+  function fieldRow(f, eff, sec) {
+    const v = M.getPath(S.A, f.path);
+    if (v === undefined || v === null) return "";
+    const r = M.getPath(S.ref, f.path), changed = JSON.stringify(v) !== JSON.stringify(r);
+    const notes = [f.note, f.partner && (S.A.partners.operator || S.A.partners.physicians) ? "A partner switch may override this value." : ""].filter(Boolean).join(" ");
+    const msgs = issuesFor(f.path).map((m) => `<small class="ui-msg ${m.level}">${esc(m.msg)}</small>`).join("");
+    return `<tr class="${changed ? "asm-changed" : ""}" data-field="${f.path}">
+      <td>${sec ? `<small class="asm-tag">${esc(sec)}</small>` : ""}<span class="asm-lbl">${esc(f.label)}</span>${notes && !S.asmNotes ? `<button class="asm-note-dot" data-notes aria-label="Show notes" title="${esc(notes)}">i</button>` : ""}${msgs}</td>
+      <td class="asm-val"><div class="inputs">${fieldInputs(f, v)}</div></td>
+      <td class="asm-unit">${{ usd: "USD", pct: "%", int: "count", num: "", bool: "" }[f.kind] || ""}</td>
+      <td class="asm-ref">${changed && r !== undefined ? `${fmtVal(f.path, r)}<button class="ui-reset" data-reset="${f.path}">Reset</button>` : "<span class=\"asm-same\">same</span>"}</td>
+      <td class="asm-eff">${eff ? effectHTML(eff) : "–"}</td>
+      ${S.asmNotes ? `<td class="asm-note">${esc(notes)}</td>` : ""}</tr>`;
+  }
+  const asmGrid = (rows) => `<div class="ui-table-wrap"><table class="ui-table asm-grid"><thead><tr><th>Input</th><th>Value</th><th>Unit</th><th>Plan v6.3</th><th>Effect on cash need</th>${S.asmNotes ? "<th>Notes</th>" : ""}</tr></thead><tbody>${rows}</tbody></table></div>`;
   const TEAM_SEC = { id: "team", title: "F · Team", fields: [] };
   const asmSections = () => SCHEMA.concat([TEAM_SEC]).slice().sort((a, b) => a.title.localeCompare(b.title));
   P.assumptions = () => {
@@ -609,7 +628,7 @@
         inputHTML(`team.${t.id}.cost`, "usd", "narrow"), t.driver === "fixed" ? "–" : inputHTML(`team.${t.id}.ratio`, "num", "narrow"), inputHTML(`team.${t.id}.min`, "int", "narrow"), inputHTML(`team.${t.id}.y1`, "pct", "narrow"),
         e ? effectHTML(e) : "–"] };
     });
-    const body = (fields ? (fields.length ? fields.map((f) => (q || S.asmSec === "top" ? `<div class="asm-sec">${esc(f.sec)}</div>` : "") + fieldHTML(f, effectOf(f.path, f.kind))).join("")
+    const body = (fields ? (fields.length ? asmGrid(fields.map((f) => fieldRow(f, effectOf(f.path, f.kind), q || S.asmSec === "top" ? f.sec : "")).join(""))
         : `<div class="ui-empty">${S.changedOnly ? "No changed inputs here. Clear Changed only to see every input." : "No input matches."}</div>`) : "")
       + (showTeam ? (teamRows.length ? table(["Role", "Monthly cost", "Clients per FTE", "Minimum FTE", "Pilot-year factor", "Monthly cost +10%"], teamRows) : `<div class="ui-empty">No team row matches.</div>`) : "");
     const pager = q ? "" : `<div class="asm-pager"><button class="ui-btn small" data-step="-1"${at <= 0 ? " disabled" : ""}>Previous section</button><button class="ui-btn small" data-step="1"${at >= order.length - 1 ? " disabled" : ""}>Next section</button></div>`;
@@ -617,10 +636,11 @@
       `<input class="ui-input asm-search" id="asm-q" type="search" placeholder="Search inputs" aria-label="Search inputs" value="${esc(S.asmQuery)}">
        <label class="ui-btn ghost" style="display:inline-flex;align-items:center;gap:6px"><input type="checkbox" id="only"${S.changedOnly ? " checked" : ""}> Changed only</label><button class="ui-btn" id="reset-all">Reset all to v6.3</button>`)
       + checksBanner() + liveStrip()
-      + `<div class="asm-layout">${nav}<section class="ui-panel asm-main"><div class="ui-panel-head"><h2>${title}</h2>${pager}</div><div class="sub">${sub}</div><div class="body">${body}</div></section></div>`;
+      + `<div class="asm-layout">${nav}<section class="ui-panel asm-main"><div class="ui-panel-head"><h2>${title}</h2><div class="asm-pager">${fields && fields.some((f) => f.note) ? `<button class="ui-btn small" data-notes aria-pressed="${S.asmNotes}">${S.asmNotes ? "Hide notes" : `Show notes (${fields.filter((f) => f.note).length})`}</button>` : ""}${pager}</div></div><div class="sub">${sub}</div><div class="body">${body}</div></section></div>`;
     return [html, () => {
       bindInputs();
       document.querySelectorAll("[data-sec]").forEach((b) => (b.onclick = () => { S.asmSec = b.dataset.sec; S.asmQuery = ""; render(); }));
+      document.querySelectorAll("[data-notes]").forEach((b) => (b.onclick = () => { S.asmNotes = !S.asmNotes; render(true); }));
       document.querySelectorAll("[data-step]").forEach((b) => (b.onclick = () => { S.asmSec = order[Math.max(0, Math.min(order.length - 1, at + +b.dataset.step))]; render(); }));
       const qi = $("#asm-q");
       qi.oninput = () => { clearTimeout(qi._t); qi._t = setTimeout(() => { S.asmQuery = qi.value; render(true); const n = $("#asm-q"); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }, 200); };
@@ -876,7 +896,7 @@
   window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => render(true), 150); });
   window.addEventListener("hashchange", () => render());
 
-  Promise.all(["data/v5.json", "data/v6.json", "data/levers.json", "data/scenarios.json", "data/report.json"].map((u) => fetch(u + "?v=71").then((r) => r.json())))
+  Promise.all(["data/v5.json", "data/v6.json", "data/levers.json", "data/scenarios.json", "data/report.json"].map((u) => fetch(u + "?v=73").then((r) => r.json())))
     .then(([v5, v6, lv, sc, rp]) => {
       S.ref = v6; S.v5 = v5; S.v6 = v6; S.scenDefs = sc; S.levers = lv.levers; S.report = rp; S.refR = M.compute(v6);
       if (!readShare()) {
