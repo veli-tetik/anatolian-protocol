@@ -40,7 +40,7 @@
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
   // ---------------------------------------------------------------- state
-  const S = { asmNotes: false, asmSec: "prices", asmQuery: "", balMode: "rounds", issues: [], ref: null, v6: null, scenDefs: { groups: [] }, holds: { conversion: "plan", referral: "plan" }, scenCache: null, A: null, name: "v6.3 plan", levers: [], pick: null, scen: "base", metric: "funding", changedOnly: false, R: null, refR: null };
+  const S = { asmNotes: false, asmSec: "prices", asmQuery: "", balMode: "rounds", issues: [], ref: null, v6: null, scenDefs: { groups: [] }, holds: { conversion: "plan", referral: "plan" }, scenCache: null, A: null, name: "v6.4 plan", levers: [], pick: null, scen: "base", metric: "funding", changedOnly: false, R: null, refR: null };
 
   function flatten(A) {
     const out = {};
@@ -122,7 +122,7 @@
     return B;
   }
 
-  // share link: only the inputs that differ from the reference plan (v6.3)
+  // share link: only the inputs that differ from the reference plan (v6.4)
   function shareURL() {
     const d = diff(S.A, S.ref).map(([k, v]) => [k, v]);
     const payload = btoa(unescape(encodeURIComponent(JSON.stringify({ n: S.name, d })))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -164,7 +164,7 @@
   const PAGES = [
     { group: "Plan", items: [["overview", "Overview"], ["rounds", "Funding rounds"], ["funding", "Cash levers"], ["scenarios", "Scenarios"], ["sensitivity", "Sensitivity"]] },
     { group: "Report", items: [["rpackages", "Packages and price"], ["reconomics", "Client economics"], ["rgrowth", "Growth and profit"], ["rcash", "Cash and funding"], ["rcases", "Business cases"], ["rmust", "What must be true"], ["report", "Document"]] },
-    { group: "Model", items: [["assumptions", "Assumptions"], ["unit", "Unit economics"], ["pnl", "P&L"], ["cash", "Monthly cash"], ["partners", "Partners"], ["checks", "Checks"]] },
+    { group: "Model", items: [["assumptions", "Assumptions"], ["unit", "Unit economics"], ["pnl", "P&L"], ["team", "Team"], ["cash", "Monthly cash"], ["partners", "Partners"], ["checks", "Checks"]] },
     { group: "Work", items: [["versions", "Versions"]] },
   ];
   function route() { return (location.hash.match(/^#\/(\w+)/) || [])[1] || "overview"; }
@@ -177,7 +177,7 @@
   function renderFoot() {
     const n = diff(S.A, S.ref).length;
     $("#foot").innerHTML = `<div class="row"><span>Version</span><b>${esc(S.name)}</b></div>
-      <div class="row"><span>Changed from v6.3</span><b>${n} input${n === 1 ? "" : "s"}</b></div>
+      <div class="row"><span>Changed from v6.4</span><b>${n} input${n === 1 ? "" : "s"}</b></div>
       <div class="row"><span>Checks</span><b class="${errCount() ? "delta-bad" : ""}">${checksTxt()}</b></div>
       <div class="row"><span>Rounds</span><b>${kusd(S.R.rounds.pre)} + ${kusd(S.R.rounds.seed)}</b></div>
       <div class="row"><span>Rounds carry the plan</span><b class="${roundsStatus().ok ? "" : "delta-bad"}">${roundsStatus().ok ? "Yes" : "No"}</b></div>
@@ -209,9 +209,9 @@
   const tile = (k, v, d = "", cls = "") => `<div class="ui-tile ${cls}"><div class="k">${k}</div><div class="v">${v}</div><div class="d">${d}</div></div>`;
   const deltaTxt = (now, was, lowerIsGood = false) => {
     const d = now - was;
-    if (Math.abs(d) < 0.5) return "Same as v6.3";
+    if (Math.abs(d) < 0.5) return "Same as v6.4";
     const good = lowerIsGood ? d < 0 : d > 0;
-    return `<span class="${good ? "delta-good" : "delta-bad"}">${d > 0 ? "+" : "−"}${kusd(Math.abs(d))}</span> against v6.3`;
+    return `<span class="${good ? "delta-good" : "delta-bad"}">${d > 0 ? "+" : "−"}${kusd(Math.abs(d))}</span> against v6.4`;
   };
   function table(head, rows) {
     return `<div class="ui-table-wrap"><table class="ui-table"><thead><tr>${head.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.map((r) => {
@@ -507,7 +507,7 @@
     const v = M.getPath(S.A, path), r = M.getPath(S.ref, path);
     const changed = JSON.stringify(v) !== JSON.stringify(r);
     const bad = S.issues.some((i) => i.level === "error" && i.path === path);
-    const title = changed && r !== undefined ? `v6.3: ${fmtInput(r, kind)}` : "";
+    const title = changed && r !== undefined ? `v6.4: ${fmtInput(r, kind)}` : "";
     return `<input class="ui-input ${cls}${changed ? " changed" : ""}${bad ? " invalid" : ""}" type="text" inputmode="decimal" autocomplete="off" id="in-${path.replace(/\./g, "-")}" data-path="${path}" data-kind="${kind}" value="${fmtInput(v, kind)}" title="${title}"${bad ? ' aria-invalid="true"' : ""} aria-label="${esc(labelOf(path.replace(/\.\d+$/, "")))}">`;
   }
   function fieldInputs(f, v) {
@@ -528,7 +528,7 @@
     const unit = { usd: "USD" }[f.kind];
     const msgs = issuesFor(f.path);
     return `<div class="ui-field" data-field="${f.path}"><div class="lbl">${esc(f.label)}${unit ? ` <small style="display:inline">· ${unit}</small>` : ""}${f.note ? `<small>${esc(f.note)}</small>` : ""}${f.partner && (S.A.partners.operator || S.A.partners.physicians) ? "<small>A partner switch may override this value.</small>" : ""}
-      ${eff ? effectHTML(eff) : ""}<button class="ui-reset" data-reset="${f.path}"${changed ? "" : " hidden"}>Reset to v6.3</button>${msgs.map((m) => `<small class="ui-msg ${m.level}">${esc(m.msg)}</small>`).join("")}</div><div class="inputs">${inputs}</div></div>`;
+      ${eff ? effectHTML(eff) : ""}<button class="ui-reset" data-reset="${f.path}"${changed ? "" : " hidden"}>Reset to v6.4</button>${msgs.map((m) => `<small class="ui-msg ${m.level}">${esc(m.msg)}</small>`).join("")}</div><div class="inputs">${inputs}</div></div>`;
   }
   function bindInputs() {
     document.querySelectorAll("input[data-path]").forEach((inp) => inp.addEventListener("change", () => {
@@ -584,7 +584,7 @@
       <td class="asm-eff">${eff ? effectHTML(eff) : "–"}</td>
       ${S.asmNotes ? `<td class="asm-note">${esc(notes)}</td>` : ""}</tr>`;
   }
-  const asmGrid = (rows) => `<div class="ui-table-wrap"><table class="ui-table asm-grid"><thead><tr><th>Input</th><th>Value</th><th>Unit</th><th>Plan v6.3</th><th>Effect on cash need</th>${S.asmNotes ? "<th>Notes</th>" : ""}</tr></thead><tbody>${rows}</tbody></table></div>`;
+  const asmGrid = (rows) => `<div class="ui-table-wrap"><table class="ui-table asm-grid"><thead><tr><th>Input</th><th>Value</th><th>Unit</th><th>Plan v6.4</th><th>Effect on cash need</th>${S.asmNotes ? "<th>Notes</th>" : ""}</tr></thead><tbody>${rows}</tbody></table></div>`;
   const TEAM_SEC = { id: "team", title: "F · Team", fields: [] };
   const asmSections = () => SCHEMA.concat([TEAM_SEC]).slice().sort((a, b) => a.title.localeCompare(b.title));
   P.assumptions = () => {
@@ -632,9 +632,9 @@
         : `<div class="ui-empty">${S.changedOnly ? "No changed inputs here. Clear Changed only to see every input." : "No input matches."}</div>`) : "")
       + (showTeam ? (teamRows.length ? table(["Role", "Monthly cost", "Clients per FTE", "Minimum FTE", "Pilot-year factor", "Monthly cost +10%"], teamRows) : `<div class="ui-empty">No team row matches.</div>`) : "");
     const pager = q ? "" : `<div class="asm-pager"><button class="ui-btn small" data-step="-1"${at <= 0 ? " disabled" : ""}>Previous section</button><button class="ui-btn small" data-step="1"${at >= order.length - 1 ? " disabled" : ""}>Next section</button></div>`;
-    const html = header("Assumptions", `${changed.size} input${changed.size === 1 ? "" : "s"} changed from v6.3 · one section at a time · results update when you leave a field`,
+    const html = header("Assumptions", `${changed.size} input${changed.size === 1 ? "" : "s"} changed from v6.4 · one section at a time · results update when you leave a field`,
       `<input class="ui-input asm-search" id="asm-q" type="search" placeholder="Search inputs" aria-label="Search inputs" value="${esc(S.asmQuery)}">
-       <label class="ui-btn ghost" style="display:inline-flex;align-items:center;gap:6px"><input type="checkbox" id="only"${S.changedOnly ? " checked" : ""}> Changed only</label><button class="ui-btn" id="reset-all">Reset all to v6.3</button>`)
+       <label class="ui-btn ghost" style="display:inline-flex;align-items:center;gap:6px"><input type="checkbox" id="only"${S.changedOnly ? " checked" : ""}> Changed only</label><button class="ui-btn" id="reset-all">Reset all to v6.4</button>`)
       + checksBanner() + liveStrip()
       + `<div class="asm-layout">${nav}<section class="ui-panel asm-main"><div class="ui-panel-head"><h2>${title}</h2><div class="asm-pager">${fields && fields.some((f) => f.note) ? `<button class="ui-btn small" data-notes aria-pressed="${S.asmNotes}">${S.asmNotes ? "Hide notes" : `Show notes (${fields.filter((f) => f.note).length})`}</button>` : ""}${pager}</div></div><div class="sub">${sub}</div><div class="body">${body}</div></section></div>`;
     return [html, () => {
@@ -645,7 +645,47 @@
       const qi = $("#asm-q");
       qi.oninput = () => { clearTimeout(qi._t); qi._t = setTimeout(() => { S.asmQuery = qi.value; render(true); const n = $("#asm-q"); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }, 200); };
       $("#only").onchange = (e) => { S.changedOnly = e.target.checked; render(); };
-      $("#reset-all").onclick = () => { setA(S.ref, "v6.3 plan"); render(); toast("All inputs reset to v6.3."); };
+      $("#reset-all").onclick = () => { setA(S.ref, "v6.4 plan"); render(); toast("All inputs reset to v6.4."); };
+    }];
+  };
+
+  // Team by role and year: who is on the company's payroll and who Plus International carries in kind.
+  P.team = () => {
+    const Y = S.R.scen.base.years, team = S.A.team, ik = new Set((S.A.inKind && S.A.inKind.team) || []);
+    const by = (S.A.inKind && S.A.inKind.by) || "Plus International";
+    const paidFte = (y) => team.filter((t) => !ik.has(t.id)).reduce((a, t) => a + y.fte[t.id], 0);
+    const ikFte = (y) => team.filter((t) => ik.has(t.id)).reduce((a, t) => a + y.fte[t.id], 0);
+    const rule = (t) => (t.driver === "fixed" ? "Fixed" : `1 per ${num(t.ratio)} ${{ new: "new clients", active: "active clients", visits: "visits" }[t.driver]}`) + (t.driver !== "fixed" && t.min ? `, at least ${t.min}` : "")
+      + (t.y1 < 1 ? ` · ${pct(t.y1)} of the pilot year` : "");
+    const groups = [["ga", "Leadership"], ["sales", "Sales"], ["care", "Care team"]];
+    const fteRows = groups.flatMap(([g, name]) => [{ group: name }, ...team.filter((t) => t.group === g).map((t) => ({
+      cells: [`${esc(t.name)}<br><small style="color:var(--ui-muted)">${rule(t)}</small>`, ik.has(t.id) ? `<span class="ui-tag">${esc(by)}</span>` : "Company", ...Y.map((y) => num(y.fte[t.id]))] }))])
+      .concat([
+        { cells: ["Company payroll", "", ...Y.map((y) => num(paidFte(y)))], cls: "total" },
+        { cells: [`Carried by ${esc(by)} in kind`, "", ...Y.map((y) => num(ikFte(y)))], cls: "total" },
+        { cells: ["Total team", "", ...Y.map((y) => num(y.fteTotal))], cls: "key" },
+        { cells: ["Active clients per team member", "", ...Y.map((y) => num(y.active / Math.max(1, y.fteTotal), 1))], cls: "minor" },
+        { cells: ["Revenue per team member", "", ...Y.map((y) => kusd(y.revenue / Math.max(1, y.fteTotal)))], cls: "minor" },
+      ]);
+    const costOf = (t, y) => (ik.has(t.id) ? y.inKindTeam[t.id] || 0 : y.teamCost[t.id] || 0);
+    const costRows = team.map((t) => ({ cells: [esc(t.name), ik.has(t.id) ? `<span class="ui-tag">${esc(by)}</span>` : "Company", ...Y.map((y) => usd(costOf(t, y)))] }))
+      .concat([
+        { cells: ["Company payroll", "", ...Y.map((y) => usd(team.filter((t) => !ik.has(t.id)).reduce((a, t) => a + costOf(t, y), 0)))], cls: "total" },
+        { cells: [`Carried by ${esc(by)} (memo, not in the P&L)`, "", ...Y.map((y) => usd(team.filter((t) => ik.has(t.id)).reduce((a, t) => a + costOf(t, y), 0)))], cls: "total" },
+      ]);
+    const y1 = Y[0], y5 = Y[4];
+    const html = header("Team", `Headcount by role and year · base case · edit the ratios on Assumptions, F · Team`, `<button class="ui-btn" id="team-edit">Edit team inputs</button>`)
+      + checksBanner()
+      + `<div class="ui-tiles">${tile("Team, year 1 → year 5", `${num(y1.fteTotal)} → ${num(y5.fteTotal)}`, "Full-time equivalents; part-time roles count as one", "focus")}
+        ${tile("Company payroll", `${num(paidFte(y1))} → ${num(paidFte(y5))}`, `${kusd(y5.careTeam + y5.advisors + y5.leadership)} in year 5`)}
+        ${tile(`Carried by ${esc(by)}`, `${num(ikFte(y1))} → ${num(ikFte(y5))}`, `${kusd(team.filter((t) => ik.has(t.id)).reduce((a, t) => a + costOf(t, y5), 0))} in year 5, at a ${pct(S.A.partners.revenueShare)} revenue share`)}
+        ${tile("Active clients per team member", `${num(y1.active / y1.fteTotal, 1)} → ${num(y5.active / y5.fteTotal, 1)}`, "Year 1 → year 5")}</div>
+      <section class="ui-panel"><h2>Team size</h2><div class="sub">Full-time equivalents at year end, by who pays for them</div><div class="body"><div id="ch-team"></div></div></section>
+      <section class="ui-panel"><h2>By role</h2><div class="sub">Headcount = the larger of the minimum and clients ÷ ratio, rounded up. Pilot-year roles may be on payroll for part of the year only (cost below), but count as one.</div><div class="body">${table(["Role", "Paid by", ...YRS], fteRows)}</div></section>
+      <section class="ui-panel"><h2>Cost by role</h2><div class="sub">USD, with Türkiye cost inflation; the pilot-year factor applies in year 1</div><div class="body">${table(["Role", "Paid by", ...YRS], costRows)}</div></section>`;
+    return [html, () => {
+      C.bars($("#ch-team"), { labels: YRS, series: [{ name: "Company payroll", c: 1, values: Y.map(paidFte) }, { name: `Carried by ${by}`, c: 3, values: Y.map(ikFte) }], fmt: (v) => num(v) });
+      $("#team-edit").onclick = () => { S.asmSec = "team"; S.asmQuery = ""; location.hash = "#/assumptions"; };
     }];
   };
 
@@ -832,9 +872,9 @@
   P.versions = () => {
     const vs = versions(), d = diff(S.A, S.ref);
     const presets = [
-      ["v6.3 plan", () => S.v6, "2% of leads become clients at $75 a lead (benchmark; stress $150), 30 → 180 new clients a year, 40% marketing support a year later, staff and infrastructure carried in kind by Plus International, payment per visit (front-loaded), a $200k pre-seed and a $500k seed at month 9, and a light pilot year: partner rates, a 5% founding discount, the ATRON fee waived."],
+      ["v6.4 plan", () => S.v6, "2% of leads become clients at $75 a lead (benchmark; stress $150), 30 → 180 new clients a year, 40% marketing support a year later, staff and infrastructure carried in kind by Plus International, payment per visit (front-loaded), a $200k pre-seed and a $500k seed at month 9, and a light pilot year: partner rates, a 5% founding discount, the ATRON fee waived."],
       ["v5 baseline", () => S.v5, "The Excel model v5, converted 1:1."],
-      ["v6.3 plan with every funding lever", () => applyLevers(S.v6, S.levers.map((l) => l.id)), "v6.3 with partner rates, the physician network, payment in full at the first visit, a 5% founding discount and the ATRON fee waived."],
+      ["v6.4 plan with every funding lever", () => applyLevers(S.v6, S.levers.map((l) => l.id)), "v6.4 with partner rates, the physician network, payment in full at the first visit, a 5% founding discount and the ATRON fee waived."],
     ];
     const html = header("Versions", "Plans are JSON files: save them here, export them to the repository, share them as a link",
       `<button class="ui-btn" id="share">Copy share link</button><button class="ui-btn" id="export">Export JSON</button><label class="ui-btn" style="display:inline-flex;align-items:center">Import JSON<input type="file" id="import" accept="application/json,.json" hidden></label><button class="ui-btn primary" id="save">Save version</button>`)
@@ -843,12 +883,12 @@
         <section class="ui-panel"><h2>Saved in this browser</h2><div class="body">${vs.length ? vs.map((v, i) => `<div class="ui-list-row"><div>${esc(v.name)}<div class="meta">${fmtDate(v.at)} · funding ${kusd(M.compute(v.A).funding)}</div></div><div class="ui-actions"><button class="ui-btn small" data-load="${i}">Load</button><button class="ui-btn small ghost" data-del="${i}">Delete</button></div></div>`).join("") : `<div class="ui-empty">No saved versions yet. Save version keeps the current plan in this browser.</div>`}</div></section>
         <section class="ui-panel"><h2>How to work with plans</h2><div class="body" style="display:grid;gap:6px">
           <div>1. Change inputs on any page; results update everywhere. The draft stays in this browser.</div>
-          <div>2. Save version to keep a named copy here, or Copy share link to send the plan: the link carries only the inputs that differ from v6.3.</div>
+          <div>2. Save version to keep a named copy here, or Copy share link to send the plan: the link carries only the inputs that differ from v6.4.</div>
           <div>3. To make a plan official for everyone, Export JSON and commit it to <code>plan/data/</code> in the repository; git keeps the history.</div>
           <div>4. Levers for the Funding page live in <code>plan/data/levers.json</code>.</div>
         </div></section>
       </div>
-      <section class="ui-panel"><h2>Changes from v6.3</h2><div class="sub">${esc(S.name)} · ${d.length} input${d.length === 1 ? "" : "s"}</div><div class="body">${d.length ? table(["Input", "v5", "Now"], d.map(([k, now, was]) => ({ cells: [esc(labelOf(k)), fmtVal(k, was), fmtVal(k, now)] }))) : `<div class="ui-empty">The current plan is the v6.3 plan.</div>`}</div></section></div>`;
+      <section class="ui-panel"><h2>Changes from v6.4</h2><div class="sub">${esc(S.name)} · ${d.length} input${d.length === 1 ? "" : "s"}</div><div class="body">${d.length ? table(["Input", "v5", "Now"], d.map(([k, now, was]) => ({ cells: [esc(labelOf(k)), fmtVal(k, was), fmtVal(k, now)] }))) : `<div class="ui-empty">The current plan is the v6.4 plan.</div>`}</div></section></div>`;
     return [html, () => {
       document.querySelectorAll("[data-preset]").forEach((b) => (b.onclick = () => { const p = presets[+b.dataset.preset]; setA(p[1](), p[0]); render(); toast(p[0] + " loaded."); }));
       document.querySelectorAll("[data-load]").forEach((b) => (b.onclick = () => { const v = versions()[+b.dataset.load]; setA(v.A, v.name); render(); toast(v.name + " loaded."); }));
@@ -896,15 +936,15 @@
   window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => render(true), 150); });
   window.addEventListener("hashchange", () => render());
 
-  Promise.all(["data/v5.json", "data/v6.json", "data/levers.json", "data/scenarios.json", "data/report.json"].map((u) => fetch(u + "?v=73").then((r) => r.json())))
+  Promise.all(["data/v5.json", "data/v6.json", "data/levers.json", "data/scenarios.json", "data/report.json"].map((u) => fetch(u + "?v=75").then((r) => r.json())))
     .then(([v5, v6, lv, sc, rp]) => {
       S.ref = v6; S.v5 = v5; S.v6 = v6; S.scenDefs = sc; S.levers = lv.levers; S.report = rp; S.refR = M.compute(v6);
       if (!readShare()) {
         let draft = null;
         try { draft = JSON.parse(localStorage.getItem(LS_DRAFT) || "null"); } catch (e) { draft = null; }
-        if (draft && draft.d) { S.A = withChanges(draft.d); S.name = draft.name; } else { S.A = M.clone(v6); S.name = "v6.3 plan"; }
+        if (draft && draft.d) { S.A = withChanges(draft.d); S.name = draft.d.length ? draft.name : "v6.4 plan"; } else { S.A = M.clone(v6); S.name = "v6.4 plan"; }
       }
-      try { recompute(); } catch (e) { S.A = M.clone(v6); S.name = "v6.3 plan"; recompute(); }
+      try { recompute(); } catch (e) { S.A = M.clone(v6); S.name = "v6.4 plan"; recompute(); }
       render();
     })
     .catch(() => {

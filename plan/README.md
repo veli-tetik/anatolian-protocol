@@ -18,6 +18,7 @@ Published with GitHub Pages at `/plan/` next to the presentation.
 | P&L | Five-year P&L, cash and funding per scenario; CSV export |
 | Monthly cash | First 36 months, the low point that sets the raise; pilot cohort timing |
 | Partners | Operator + hospital and physician network switches, what each takes off, and the staff and costs Plus International carries in kind |
+| Team | Headcount and cost by role and year, company payroll against staff carried in kind by Plus International |
 | Checks | Model rules every input must meet (errors) and results worth a second look (warnings) |
 | Versions | Starting points, saved versions, JSON export/import, share links, change list |
 
@@ -36,7 +37,7 @@ Published with GitHub Pages at `/plan/` next to the presentation.
 
 ## Files
 
-- `data/v6.json` — the current plan (v6.3, `Anatolian_Protocol_PL_Feasibility_v6.3.xlsx` as data), loaded by default and the reference that changes are shown against: v6.2 with payment per visit (a $500 deposit at sale, then before each visit the share for that visit, front-loaded: Annual 100%, Summer–Winter 60/40, Seasonal 50/25/25 of the rest), funding in two rounds only (a $200k pre-seed and a $500k seed at the end of month 9) and a lighter pilot year: Plus International partner rates, a 5% founding-cohort discount, the ATRON platform fee waived in year 1. `tools/v62_inputs.json` keeps the v6.2 inputs for the regression check
+- `data/v6.json` — the current plan (v6.4, `Anatolian_Protocol_PL_Feasibility_v6.4.xlsx` as data), loaded by default and the reference that changes are shown against: v6.3 (payment per visit, two rounds of $200k + $500k, a light pilot year with Plus International partner rates, a 5% founding discount and the ATRON fee waived) with a slimmer care team: care coordinators 1 per 60 active clients (at least 1), dietitians and coaches 1 per 120, concierges 1 per 250 visits. `tools/v62_inputs.json` and `tools/v63_inputs.json` keep earlier inputs for the regression check
 - `data/v5.json` — the v5 Excel model as data (all assumptions), kept for history and the regression check
 - `data/levers.json` — funding levers
 - `data/scenarios.json` — business scenarios: groups of cases, each a set of input changes on the plan
@@ -124,6 +125,15 @@ its trips are for two or more people, but companions buying their own treatment 
 15% → 20% → 25% → 30% → 35% of new clients, with the same client plan (30 → 180), so it buys more leads early on (1,070 instead of 819
 in year 1; 15,260 instead of 13,915 over five years). Without referral partners at all, v6.2 needs $454k instead of $434k with the same
 client plan.
+
+## v6.4: a slimmer care team
+
+The team grew from 10 to 22 people (6 to 11 on the company payroll, the rest carried in kind by Plus International). The blueprint
+ratios are generous for a programme followed up remotely through the platform, so v6.4 uses care coordinators 1 per 60 active
+clients (40) with a minimum of one (two), dietitians and coaches 1 per 120 (80), concierges 1 per 250 visits (150). The team is
+9 → 16 (company payroll 6 → 9), year-5 EBITDA rises by $62k, and Plus International carries $0.94M in kind over five years instead
+of $1.22M. The cash need does not move ($221k in the workbook): it is set by the pilot year, when these roles are part-time anyway.
+The Team page shows headcount and cost by role and year.
 
 ## v6.3: payment per visit, two rounds ($200k + $500k)
 
